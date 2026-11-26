@@ -1526,7 +1526,23 @@ namespace Icewolf.Setup
                 "pref(\"general.config.filename\", \"icewolf.cfg\");\n" +
                 "pref(\"general.config.obscure_value\", 0);\n" +
                 "pref(\"general.config.sandbox_enabled\", false);\n", utf8);
-            string own = "// Icewolf configuration - the first line is ignored by the browser\n" + js + "\n";
+            // Newer LibreWolf builds point the browser at librewolf.cfg from their built-in settings
+            // (no file in defaults\pref). Icewolf's pref file replaces that pointer, so icewolf.cfg must
+            // load LibreWolf's own config first - otherwise LibreWolf's settings, its override file
+            // (librewolf.overrides.cfg) and its search setup are skipped.
+            string loader = "";
+            if (File.Exists(Path.Combine(engineDir, "librewolf.cfg")))
+            {
+                loader =
+                    "/* ICEWOLF-LOAD-LIBREWOLF: LibreWolf's own configuration runs first */\n" +
+                    "try {\n" +
+                    "  const lwCfg = Services.dirsvc.get(\"GreD\", Ci.nsIFile); lwCfg.append(\"librewolf.cfg\");\n" +
+                    "  if (lwCfg.exists()) Services.scriptloader.loadSubScript(Services.io.newFileURI(lwCfg).spec, this, \"UTF-8\");\n" +
+                    "} catch (e) { try { Components.utils.reportError(e); } catch (e2) { } }\n\n";
+                Log("Browser scripts: icewolf.cfg loads librewolf.cfg first");
+            }
+            else Log("Browser scripts: no librewolf.cfg in the engine");
+            string own = "// Icewolf configuration - the first line is ignored by the browser\n" + loader + js + "\n";
             string ownPath = Path.Combine(engineDir, "icewolf.cfg");
             if (File.Exists(ownPath) && File.ReadAllText(ownPath) == own) { Log("Browser scripts: up to date (icewolf.cfg)"); return; }
             File.WriteAllText(ownPath, own, utf8);

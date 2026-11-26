@@ -36,8 +36,26 @@ try {
         out.init(fos, "UTF-8"); out.writeString(new Date().toISOString() + "  " + msg + "\r\n"); out.close();
       } catch (e) { }
     }
-    async function ensureDuckDuckGo() {
-      const search = Svc.search;
+    // The search service moved around in newer engine versions - find it wherever it is.
+    function findSearchService(win) {
+      const tries = [
+        () => Svc.search,
+        () => win && win.Services && win.Services.search,
+        () => ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs").SearchService,
+        () => ChromeUtils.importESModule("resource://gre/modules/SearchService.sys.mjs").SearchService,
+        () => Cc["@mozilla.org/browser/search-service;1"].getService(Ci.nsISearchService)
+      ];
+      for (let i = 0; i < tries.length; i++) {
+        try {
+          const s = tries[i]();
+          if (s && typeof s.init === "function" && typeof s.getEngines === "function") { slog("search service found (way " + (i + 1) + ")"); return s; }
+        } catch (e) { }
+      }
+      return null;
+    }
+    async function ensureDuckDuckGo(win) {
+      const search = findSearchService(win);
+      if (!search) { slog("ERROR search service not found"); return; }
       slog("Icewolf search check started (" + Svc.appinfo.version + ")");
       // init() normally takes milliseconds; if it hangs, say so instead of waiting forever
       await Promise.race([
@@ -78,7 +96,7 @@ try {
     Svc.obs.addObserver({
       observe(subject, topic) {
         Svc.obs.removeObserver(this, topic);
-        ensureDuckDuckGo().catch((e) => slog("ERROR " + (e && e.stack ? e.message + "\n" + e.stack : e)));
+        ensureDuckDuckGo(subject).catch((e) => slog("ERROR " + (e && e.stack ? e.message + "\n" + e.stack : e)));
       }
     }, "browser-delayed-startup-finished");
   })();
