@@ -15,7 +15,7 @@ Built on the LibreWolf engine, with the **Getem** video downloader built in.<br>
 
 **[⬇ Download the latest version](../../releases/latest)**
 
-<sub>Just want the browser? Use the main <a href="../../../project-icewolf"><b>Project Icewolf</b></a> repository, which has no Getem.</sub>
+<sub>Just want the browser? Use the main <a href="https://github.com/Hopi85/project-icewolf"><b>Project Icewolf</b></a> repository, which has no Getem.</sub>
 
 </div>
 
@@ -46,10 +46,10 @@ Go to **[Releases](../../releases/latest)** and pick one:
 
 | File | For |
 |---|---|
-| `IcewolfSetup-Getem-<version>.exe` | **Installer**: installs Icewolf with Getem, a Start menu entry and automatic updates. |
-| `IcewolfPortable-Getem-<version>.zip` | **Portable**: extract anywhere and start `Icewolf.exe`. Nothing is installed. |
+| `IcewolfSetup-Getem-v<version>.exe` | **Installer**: installs Icewolf with Getem, a Start menu entry and automatic updates. |
+| `IcewolfPortable-Getem-v<version>.zip` | **Portable**: extract anywhere and start `Icewolf.exe`. Nothing is installed. |
 
-Want Icewolf without Getem? Download it from the main <a href="../../../project-icewolf"><b>Project Icewolf</b></a> repository.
+Want Icewolf without Getem? Download it from the main <a href="https://github.com/Hopi85/project-icewolf"><b>Project Icewolf</b></a> repository.
 
 > **"Windows protected your PC"?** The setup isn't code-signed (a certificate costs money), so Windows warns about it. Click **More info → Run anyway**. Each file has a `.sha256` checksum so you can check that your download wasn't altered.
 
