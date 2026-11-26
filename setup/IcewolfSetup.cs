@@ -686,9 +686,50 @@ namespace Icewolf.Setup
                 var addDict = kv.Value as Dictionary<string, object>;
                 if (addDict != null && target.TryGetValue(kv.Key, out existing) && existing is Dictionary<string, object>)
                     DeepMerge((Dictionary<string, object>)existing, addDict);
+                else if (kv.Value is System.Collections.IList && target.TryGetValue(kv.Key, out existing) && existing is System.Collections.IList)
+                    target[kv.Key] = MergeLists((System.Collections.IList)existing, (System.Collections.IList)kv.Value);
                 else
                     target[kv.Key] = kv.Value;
             }
+            // DuckDuckGo is Icewolf's search engine: it must never be on a "remove" list.
+            object se;
+            if (target.TryGetValue("SearchEngines", out se) && se is Dictionary<string, object>)
+            {
+                object rem;
+                var engines = (Dictionary<string, object>)se;
+                if (engines.TryGetValue("Remove", out rem) && rem is System.Collections.IList)
+                {
+                    var kept = new System.Collections.ArrayList();
+                    foreach (object o in (System.Collections.IList)rem)
+                        if (!string.Equals(o as string, "DuckDuckGo", StringComparison.OrdinalIgnoreCase)) kept.Add(o);
+                    engines["Remove"] = kept;
+                }
+            }
+        }
+
+        /// <summary>Lists are combined: LibreWolf's entries stay, Icewolf's are added unless an
+        /// entry with the same value (or the same "Name") is already there.</summary>
+        private static System.Collections.ArrayList MergeLists(System.Collections.IList existing, System.Collections.IList add)
+        {
+            var result = new System.Collections.ArrayList(existing);
+            foreach (object item in add)
+            {
+                bool dup = false;
+                var itemDict = item as Dictionary<string, object>;
+                foreach (object old in result)
+                {
+                    var oldDict = old as Dictionary<string, object>;
+                    if (itemDict != null && oldDict != null)
+                    {
+                        object a, b;
+                        if (itemDict.TryGetValue("Name", out a) && oldDict.TryGetValue("Name", out b) &&
+                            string.Equals(a as string, b as string, StringComparison.OrdinalIgnoreCase)) { dup = true; break; }
+                    }
+                    else if (Equals(item, old)) { dup = true; break; }
+                }
+                if (!dup) result.Add(item);
+            }
+            return result;
         }
 
         private static void WriteOverrides()
