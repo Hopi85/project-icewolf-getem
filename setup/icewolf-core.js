@@ -38,7 +38,14 @@ try {
     }
     async function ensureDuckDuckGo() {
       const search = Svc.search;
-      await search.init();
+      slog("Icewolf search check started (" + Svc.appinfo.version + ")");
+      // init() normally takes milliseconds; if it hangs, say so instead of waiting forever
+      await Promise.race([
+        search.init(),
+        new Promise((_, reject) => ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs")
+          .setTimeout(() => reject(new Error("search service did not start within 30 s")), 30000))
+      ]);
+      slog("search service ready");
       let engines = [];
       try { engines = await search.getEngines(); } catch (e) { slog("getEngines failed: " + e); }
       slog("engines: " + (engines.map((x) => x.name).join(", ") || "(none)"));
@@ -71,7 +78,7 @@ try {
     Svc.obs.addObserver({
       observe(subject, topic) {
         Svc.obs.removeObserver(this, topic);
-        ensureDuckDuckGo().catch((e) => slog("ERROR " + e));
+        ensureDuckDuckGo().catch((e) => slog("ERROR " + (e && e.stack ? e.message + "\n" + e.stack : e)));
       }
     }, "browser-delayed-startup-finished");
   })();
