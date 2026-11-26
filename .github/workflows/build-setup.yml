@@ -60,16 +60,30 @@ jobs:
           TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
           ENGINE: ${{ needs.build.outputs.version }}
         run: |
+          VER="${TAG%%-*}"
           cat > notes.md <<EOF
-          Built automatically for $TAG on LibreWolf engine $ENGINE.
+          Icewolf $VER, built automatically on LibreWolf engine $ENGINE.
 
           - **Installer:** run the .exe. Windows may show "Windows protected your PC": click *More info* -> *Run anyway* (the setup is not code-signed).
           - **Portable:** extract the .zip anywhere and start Icewolf.exe.
           - **Getem** needs Python 3.10+ from python.org ("Add Python to PATH"). Use it only for private copies of content you're allowed to download.
           - Each file has a .sha256 file to check that the download wasn't altered.
           EOF
+          # File names get the Icewolf version from the release tag instead of the engine version:
+          # tag "v1.2" or "v1.2-Getem-Edition" -> IcewolfPortable-Getem-v1.2.zip
+          cd dist
+          rm -f ./*"-$ENGINE".exe.sha256 ./*"-$ENGINE".zip.sha256
+          for f in ./*"-$ENGINE".exe ./*"-$ENGINE".zip; do
+            [ -e "$f" ] || continue
+            n="${f/-$ENGINE/-$VER}"
+            mv "$f" "$n"
+            h=$(sha256sum "$n" | cut -d' ' -f1 | tr 'a-f' 'A-F')
+            printf '%s  %s\r\n' "$h" "${n#./}" > "$n.sha256"
+          done
+          cd ..
+          ls -l dist
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Icewolf Getem Edition $TAG" --notes-file notes.md
+            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Icewolf Getem Edition $VER" --notes-file notes.md
           fi
