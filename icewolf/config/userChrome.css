@@ -1,0 +1,261 @@
+/* =====================================================================
+   Icewolf - Frost theme (blue)
+   Loaded from <profile>/chrome/userChrome.css
+   Only changes colours. It does not touch page content or security UI.
+   ===================================================================== */
+
+:root {
+  --iw-deep:    #07162d;  /* window / tab strip           */
+  --iw-night:   #0c2447;  /* toolbar                      */
+  --iw-ice:     #13355f;  /* selected tab, fields         */
+  --iw-frost:   #5fb4ff;  /* accent                       */
+  --iw-glow:    #00d5ff;  /* focus / highlights           */
+  --iw-snow:    #e6f4ff;  /* text                         */
+
+  --lwt-accent-color: var(--iw-deep) !important;
+  --lwt-accent-color-inactive: #061226 !important;
+  --lwt-text-color: var(--iw-snow) !important;
+  --toolbox-bgcolor: var(--iw-deep) !important;
+  --toolbox-textcolor: var(--iw-snow) !important;
+
+  --toolbar-bgcolor: var(--iw-night) !important;
+  --toolbar-color: var(--iw-snow) !important;
+  --toolbar-field-background-color: var(--iw-ice) !important;
+  --toolbar-field-focus-background-color: #0f2c52 !important;
+  --toolbar-field-color: var(--iw-snow) !important;
+  --toolbar-field-focus-color: var(--iw-snow) !important;
+  --toolbar-field-border-color: transparent !important;
+  --toolbar-field-focus-border-color: var(--iw-frost) !important;
+
+  --tab-selected-bgcolor: var(--iw-ice) !important;
+  --tab-selected-textcolor: #ffffff !important;
+  --tab-hover-background-color: rgba(95, 180, 255, 0.14) !important;
+  --tab-line-color: var(--iw-glow) !important;
+
+  --arrowpanel-background: var(--iw-night) !important;
+  --arrowpanel-color: var(--iw-snow) !important;
+  --arrowpanel-border-color: rgba(95, 180, 255, 0.35) !important;
+
+  --sidebar-background-color: var(--iw-deep) !important;
+  --sidebar-text-color: var(--iw-snow) !important;
+
+  --focus-outline-color: var(--iw-glow) !important;
+  --button-primary-bgcolor: #2a7fd6 !important;
+  --button-primary-hover-bgcolor: #3a92ea !important;
+  --button-primary-active-bgcolor: #1f6bbb !important;
+  --button-primary-color: #ffffff !important;
+
+  --urlbar-box-bgcolor: var(--iw-ice) !important;
+  --urlbar-box-hover-bgcolor: #1a4277 !important;
+  --urlbar-box-focus-bgcolor: #1a4277 !important;
+  --urlbarView-highlight-background: #1f5fa8 !important;
+  --urlbarView-highlight-color: #ffffff !important;
+}
+
+#navigator-toolbox {
+  background: linear-gradient(180deg, #0a1f3e 0%, var(--iw-deep) 100%) !important;
+  border-bottom: 1px solid rgba(95, 180, 255, 0.25) !important;
+}
+
+#nav-bar,
+#PersonalToolbar {
+  background-color: var(--iw-night) !important;
+}
+
+/* Selected tab: frost glow along the top edge */
+.tabbrowser-tab[selected] .tab-background {
+  background: var(--iw-ice) !important;
+  box-shadow: inset 0 2px 0 var(--iw-glow), 0 0 8px rgba(0, 213, 255, 0.25) !important;
+}
+
+/* Address bar focus glow */
+#urlbar[focused] > #urlbar-background {
+  box-shadow: 0 0 0 1px var(--iw-frost), 0 0 10px rgba(95, 180, 255, 0.45) !important;
+}
+
+/* Page loading throbber and progress in blue */
+#tabbrowser-tabs .tab-throbber[busy]::before {
+  fill: var(--iw-glow) !important;
+}
+
+/* =====================================================================
+   Removed features: hide every remaining menu entry, button and
+   right-click item for Mozilla account, passwords, autofill, AI,
+   translation and other removed features.
+   ===================================================================== */
+/* Mozilla account / Sync / send tab */
+#fxa-toolbar-menu-button,
+#appMenu-fxa-status2, #appMenu-fxa-separator, #appMenu-fxa-label2,
+#PanelUI-fxa, #PanelUI-remotetabs, #appMenu-sync-button,
+#sync-setup, #sync-status, #sync-tabs-menuitem, #sync-enable, #sync-syncnowitem,
+#context-sendpagetodevice, #context-sendlinktodevice, #context-sendimage,
+#context-sep-sendpagetodevice, #context-sep-sendlinktodevice,
+#context_sendTabToDevice, #context_sendTabToDevice_separator,
+#pageAction-panel-sendToDevice, #menu_profileManagement,
+
+/* Passwords / autofill */
+#appMenu-passwords-button, #menu_openLogins, #passwords-menuitem,
+#password-notification-icon, #login-fill-separator,
+#fill-login, #fill-login-generated-password, #use-relay-mask, #manage-saved-logins,
+#context-autofill-addresses, #context-autofill-creditcards,
+
+/* AI chatbot, AI link preview, AI tab grouping */
+#context-ask-chat, #context-sep-ask-chat, #context-previewlink,
+#menu_genaiChatSidebar, #viewGenaiChatSidebar, #sidebar-switcher-genai-chat,
+#genai-chatbot-button, #tab-context-smart-group, #tab-group-suggestions-button,
+
+/* Translation */
+#translations-button, #appMenu-translate-button, #context-translate-selection,
+#context-translate-selection-separator, #full-page-translations-panel,
+
+/* Other removed features */
+#firefox-view-button, #screenshot-button, #context-take-screenshot,
+#context-sep-screenshots, #appMenu-screenshot-button, #reader-mode-button,
+#shopping-sidebar-button, #reportBrokenSite, #help_reportBrokenSite,
+#appMenu-report-broken-site-button, #menu_openFirefoxView,
+#appMenu-more-from-mozilla-button, #appMenu-whatsnew-button {
+  display: none !important;
+}
+
+/* =====================================================================
+   Dark frost quick-menu, right-click menus and panels
+   ===================================================================== */
+:root {
+  color-scheme: dark !important;
+  --panel-background: var(--iw-night) !important;
+  --panel-color: var(--iw-snow) !important;
+  --panel-border-color: rgba(95, 180, 255, 0.35) !important;
+  --panel-separator-color: rgba(95, 180, 255, 0.18) !important;
+  --panel-item-hover-bgcolor: rgba(95, 180, 255, 0.16) !important;
+  --panel-item-active-bgcolor: rgba(95, 180, 255, 0.26) !important;
+  --panel-banner-item-background-color: var(--iw-ice) !important;
+  --menu-background-color: var(--iw-night) !important;
+  --menu-color: var(--iw-snow) !important;
+  --menu-border-color: rgba(95, 180, 255, 0.35) !important;
+  --menuitem-hover-background-color: rgba(95, 180, 255, 0.16) !important;
+  --menuitem-disabled-hover-background-color: transparent !important;
+  --menu-disabled-color: #6f93bc !important;
+  --menu-icon-opacity: 0.85 !important;
+}
+menupopup, panel, panelview, .panel-subview-body, #appMenu-popup, #appMenu-mainView {
+  color-scheme: dark !important;
+  --panel-background: var(--iw-night) !important;
+  --panel-color: var(--iw-snow) !important;
+  color: var(--iw-snow) !important;
+}
+menupopup > menuitem:hover, menupopup > menu:hover, menupopup > menu[_moz-menuactive],
+menupopup > menuitem[_moz-menuactive] {
+  background-color: rgba(95, 180, 255, 0.16) !important;
+  color: #ffffff !important;
+}
+
+/* =====================================================================
+   Hamburger menu: remove "More tools", Help/About and every
+   remaining Mozilla / Firefox entry
+   ===================================================================== */
+#appMenu-more-button2, #appMenu-more-button,
+#appMenu-help-button2, #appMenu-help-button, #PanelUI-helpView,
+#helpMenu, #aboutName, #appMenu_aboutName, #menu_openHelp,
+#appMenu_menu_openHelp, #feedbackPage, #appMenu_feedbackPage, #helpSafeMode,
+#troubleShooting, #help_reportSiteIssue, #menu_HelpPopup_reportPhishingtoolmenu,
+#appMenu-fxa-status2, #appMenu-fxa-separator,
+#appMenu-extensions-themes-button ~ toolbarseparator:empty:last-child {
+  display: none !important;
+}
+
+/* =====================================================================
+   Hamburger menu (and all other popup panels): forced dark frost.
+   Styles the panel surfaces directly, so it works with every theme,
+   including the default "System - auto" theme on a light Windows.
+   ===================================================================== */
+panel, menupopup,
+#appMenu-popup, #widget-overflow, #customizationui-widget-panel,
+#unified-extensions-panel, #downloadsPanel, #identity-popup, #permission-popup,
+#protections-popup, #editBookmarkPanel, #notification-popup {
+  color-scheme: dark !important;
+  --panel-background: #0c2447 !important;
+  --panel-color: #e8f5ff !important;
+  --panel-border-color: rgba(95, 180, 255, 0.35) !important;
+  --panel-separator-color: rgba(95, 180, 255, 0.18) !important;
+  --arrowpanel-background: #0c2447 !important;
+  --arrowpanel-color: #e8f5ff !important;
+  --arrowpanel-border-color: rgba(95, 180, 255, 0.35) !important;
+  --arrowpanel-dimmed: rgba(95, 180, 255, 0.10) !important;
+  --arrowpanel-dimmed-further: rgba(95, 180, 255, 0.18) !important;
+  --button-hover-bgcolor: rgba(95, 180, 255, 0.16) !important;
+  --button-active-bgcolor: rgba(95, 180, 255, 0.26) !important;
+}
+
+panel::part(content), menupopup::part(content),
+.panel-arrowcontent, .panel-viewcontainer, .panel-viewstack,
+panelview, .panel-mainview, .panel-subview-body, .panel-header, .panel-footer,
+#appMenu-mainView, #appMenu-protonMainView, #PanelUI-panic-view {
+  background-color: #0c2447 !important;
+  color: #e8f5ff !important;
+  border-color: rgba(95, 180, 255, 0.35) !important;
+}
+
+.subviewbutton, .toolbaritem-combined-buttons > .subviewbutton,
+#appMenu-zoom-controls, #appMenu-zoom-controls label,
+.panel-header > h1, .panel-subview-body label, panelview label,
+menupopup menu, menupopup menuitem {
+  color: #e8f5ff !important;
+}
+.subviewbutton:not([disabled]):hover, .subviewbutton[open],
+menupopup menu:hover, menupopup menuitem:hover,
+menupopup menu[_moz-menuactive], menupopup menuitem[_moz-menuactive] {
+  background-color: rgba(95, 180, 255, 0.16) !important;
+  color: #ffffff !important;
+}
+.subviewbutton:not([disabled]):hover:active { background-color: rgba(95, 180, 255, 0.26) !important; }
+.subviewbutton[disabled], menupopup menuitem[disabled] { color: #6f93bc !important; }
+.subviewbutton > .toolbarbutton-icon, .subviewbutton image { fill: #9cc3e8 !important; }
+
+toolbarseparator, menuseparator, .panel-subview-body > toolbarseparator {
+  border-color: rgba(95, 180, 255, 0.18) !important;
+  appearance: none !important;
+}
+
+/* Zoom row buttons inside the menu */
+#appMenu-zoomReduce-button2, #appMenu-zoomEnlarge-button2, #appMenu-zoomReset-button2,
+#appMenu-fullscreen-button2 {
+  color: #e8f5ff !important;
+  fill: #e8f5ff !important;
+}
+
+/* =====================================================================
+   "Forget" button (delete browsing data): small flame icon
+   ===================================================================== */
+#panic-button, #panic-button-success-icon, #PanelUI-panic-view .panel-header {
+  list-style-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2Ij4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZiIgeDE9IjAiIHkxPSIxIiB4Mj0iMCIgeTI9IjAiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZjNkMDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIwLjU1IiBzdG9wLWNvbG9yPSIjZmY4YTAwIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2ZmZDIzZiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYyIgeDE9IjAiIHkxPSIxIiB4Mj0iMCIgeTI9IjAiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmIwMDAiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmM2IwIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cGF0aCBmaWxsPSJ1cmwoI2YpIiBkPSJNOCAuNmMuNCAyLjItLjYgMy41LTEuNyA0LjhDNS4yIDYuNyA0IDggNCAxMC4yIDQgMTIuOSA1LjggMTUgOCAxNXM0LTIuMSA0LTQuOGMwLTEuNy0uOC0zLTEuNi00LS4xIDEuMS0uNiAxLjktMS40IDIuMy4zLTIuOS0uNS01LjQtMS03Ljl6Ii8+CiAgPHBhdGggZmlsbD0idXJsKCNjKSIgZD0iTTggOC4zYy4yIDEtLjMgMS42LS44IDIuMi0uNS41LS45IDEuMS0uOSAxLjlDNi4zIDEzLjYgNy4xIDE0LjQgOCAxNC40czEuNy0uOCAxLjctMmMwLS45LS40LTEuNS0uOC0yLS4xLjUtLjQuOS0uOCAxIC4yLTEuMSAwLTIuMi0uMS0zLjF6Ii8+Cjwvc3ZnPgo=") !important;
+}
+#panic-button .toolbarbutton-icon {
+  fill: initial !important;
+  -moz-context-properties: none !important;
+}
+
+/* =====================================================================
+   GetemTab test fork: one-click "send this page to Getem" button
+   ===================================================================== */
+#icewolf-getem-grab,
+#icewolf-getem-grab .toolbarbutton-icon {
+  /* red circle with a yellow "G" - embedded, needs no extra file */
+  list-style-image: url("data:image/png;base64,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") !important;
+  -moz-context-properties: none !important;
+  fill: initial !important;
+  opacity: 1 !important;
+}
+#icewolf-getem-grab[getem-state="busy"] .toolbarbutton-icon {
+  animation: icewolf-getem-pulse 1s ease-in-out infinite alternate;
+}
+#icewolf-getem-grab[getem-state="ok"] .toolbarbutton-icon {
+  filter: drop-shadow(0 0 4px #3ddc84) hue-rotate(110deg);
+}
+#icewolf-getem-grab[getem-state="error"] .toolbarbutton-icon {
+  filter: drop-shadow(0 0 4px #ff3b3b) grayscale(0.4);
+}
+@keyframes icewolf-getem-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
+}
+
