@@ -46,10 +46,10 @@ Go to **[Releases](../../releases/latest)** and pick one:
 
 | File | For |
 |---|---|
-| `IcewolfSetup-<version>.exe` | **Installer**: installs Icewolf with a Start menu entry and automatic updates. |
-| `IcewolfPortable-<version>.zip` | **Portable**: extract anywhere and start `Icewolf.exe`. Nothing is installed. |
-| `IcewolfSetup-Getem-<version>.exe` | **Installer with Getem** |
-| `IcewolfPortable-Getem-<version>.zip` | **Portable with Getem** |
+| `IcewolfSetup-Getem-<version>.exe` | **Installer**: installs Icewolf with Getem, a Start menu entry and automatic updates. |
+| `IcewolfPortable-Getem-<version>.zip` | **Portable**: extract anywhere and start `Icewolf.exe`. Nothing is installed. |
+
+Want Icewolf without Getem? Download it from the main <a href="../../../project-icewolf"><b>Project Icewolf</b></a> repository.
 
 > **"Windows protected your PC"?** The setup isn't code-signed (a certificate costs money), so Windows warns about it. Click **More info → Run anyway**. Each file has a `.sha256` checksum so you can check that your download wasn't altered.
 
@@ -59,7 +59,7 @@ Go to **[Releases](../../releases/latest)** and pick one:
 
 ## 🎬 Getem: video search & download
 
-The **"Getem"** versions include Getem, a video search and download tool that lives right inside Icewolf.
+Both versions include Getem, a video search and download tool that lives right inside Icewolf.
 
 | | |
 |---|---|
@@ -117,7 +117,7 @@ No extra software needed, only Windows' built-in tools:
 
 1. Download this repository (**Code → Download ZIP**) and extract it.
 2. Double-click **`Build-Icewolf-Setup.bat`**.
-3. The `dist` folder opens with all four versions (installer and portable, each with and without Getem).
+3. The `dist` folder opens with the installer and the portable version, both with Getem.
 
 The build downloads the newest signed LibreWolf release from LibreWolf's official servers and **stops unless** the checksum matches and every signature is valid. The installer checks the signatures again on each PC. If something fails, `build-log.txt` explains why.
 

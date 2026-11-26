@@ -210,9 +210,11 @@ try {
     )
     $getemRes = @('/resource:build\getem.zip,getem.zip', '/resource:build\GetemHost.exe,GetemHost.exe')
 
+    if (-not $WithGetem) {      # the Getem Edition only ships the Getem versions
     Step 'Compiling setup.exe (Icewolf)...'
     & $csc @common @engineRes "/out:dist\IcewolfSetup-$Version.exe" @sources | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) { Fail "Compiling the setup failed (exit code $LASTEXITCODE). See messages above." }
+    }
 
     if ($WithGetem) {
     Step 'Compiling setup.exe (Icewolf with Getem)...'
@@ -263,8 +265,10 @@ function New-PortableZip([string]$name) {
     return $zipPath
 }
 
+if (-not $WithGetem) {
 Step 'Packing Icewolf Portable...'
 $pZip = New-PortableZip "IcewolfPortable-$Version.zip"
+}
 
 if ($WithGetem) {
 Step 'Packing Icewolf Portable with Getem (Getem inside a tab + one-click button)...'
@@ -285,8 +289,7 @@ Get-ChildItem -LiteralPath $Dist -Filter 'IcewolfPortable-GetemTab-*' -ErrorActi
 Remove-Item -LiteralPath $check -Recurse -Force
 Remove-Item -LiteralPath $pRoot -Recurse -Force
 
-$setups = @("IcewolfSetup-$Version.exe")
-if ($WithGetem) { $setups += "IcewolfSetup-Getem-$Version.exe" }
+if ($WithGetem) { $setups = @("IcewolfSetup-Getem-$Version.exe") } else { $setups = @("IcewolfSetup-$Version.exe") }
 foreach ($f in $setups) {
     $o = Join-Path $Dist $f
     if (-not (Test-Path -LiteralPath $o -PathType Leaf)) { Fail "Expected output not found: $o" }
@@ -294,15 +297,25 @@ foreach ($f in $setups) {
     Set-Content -LiteralPath "$o.sha256" -Value "$h  $f" -Encoding ASCII
 }
 
+if ($WithGetem) {   # remove plain versions left over from older builds
+    foreach ($old in "IcewolfSetup-$Version.exe", "IcewolfPortable-$Version.zip") {
+        foreach ($x in $old, "$old.sha256") {
+            $f = Join-Path $Dist $x
+            if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force }
+        }
+    }
+}
+
 if ($env:GITHUB_OUTPUT) { Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "version=$Version" }
 
 Write-Host ''
 Write-Host '  Done - in the "dist" folder:' -ForegroundColor Green
-Write-Host "    IcewolfSetup-$Version.exe            installer"
-Write-Host "    IcewolfPortable-$Version.zip         portable"
 if ($WithGetem) {
 Write-Host "    IcewolfSetup-Getem-$Version.exe      installer with Getem"
 Write-Host "    IcewolfPortable-Getem-$Version.zip   portable with Getem (in a tab + one-click button)"
+} else {
+Write-Host "    IcewolfSetup-$Version.exe            installer"
+Write-Host "    IcewolfPortable-$Version.zip         portable"
 }
 Write-Host ''
 try { Stop-Transcript | Out-Null } catch { }
