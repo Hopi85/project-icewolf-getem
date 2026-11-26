@@ -63,17 +63,7 @@
     },
     "SearchEngines": {
       "Default": "DuckDuckGo",
-      "DefaultPrivate": "DuckDuckGo",
-      "Add": [
-        {
-          "Name": "DuckDuckGo",
-          "Description": "DuckDuckGo - private search",
-          "URLTemplate": "https://duckduckgo.com/?q={searchTerms}",
-          "Method": "GET",
-          "IconURL": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNkZTU4MzMiLz48Y2lyY2xlIGN4PSIxNCIgY3k9IjE0IiByPSI2LjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHBhdGggZD0iTTE5IDE5bDYgNiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+",
-          "Alias": "@ddg"
-        }
-      ]
+      "DefaultPrivate": "DuckDuckGo"
     },
     "Homepage": {
       "URL": "about:home",
