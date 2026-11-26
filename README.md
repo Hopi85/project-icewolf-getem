@@ -137,8 +137,6 @@ GitHub also builds Icewolf automatically every week and for every version tag (`
 
 </details>
 
-<a href='https://ko-fi.com/H0K72BCG8V' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-
 ---
 
 ## 📜 License & credits
@@ -149,3 +147,7 @@ GitHub also builds Icewolf automatically every week and for every version tag (`
 - **Getem** uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) and other open-source Python packages, which are downloaded on first start under their own licenses.
 
 Icewolf is an independent project and not affiliated with LibreWolf or Mozilla. Firefox is a trademark of the Mozilla Foundation.
+
+---
+
+<a href='https://ko-fi.com/H0K72BCG8V' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
