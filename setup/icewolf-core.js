@@ -53,7 +53,39 @@ try {
       }
       return null;
     }
+    // Diagnostics for the search engine list (written to icewolf-search-log.txt)
+    async function diagnoseSearch(win) {
+      const pref = (n) => {
+        try {
+          const t = Svc.prefs.getPrefType(n);
+          if (t === Svc.prefs.PREF_STRING) return JSON.stringify(Svc.prefs.getStringPref(n));
+          if (t === Svc.prefs.PREF_BOOL) return String(Svc.prefs.getBoolPref(n));
+          if (t === Svc.prefs.PREF_INT) return String(Svc.prefs.getIntPref(n));
+          return "(not set)";
+        } catch (e) { return "(error " + e + ")"; }
+      };
+      for (const n of ["general.config.filename", "librewolf.cfg.version", "services.settings.server",
+                       "services.settings.load_dump", "browser.search.region", "intl.locale.requested"])
+        slog("pref " + n + " = " + pref(n));
+      try {
+        const U = ChromeUtils.importESModule("resource://services-settings/Utils.sys.mjs").Utils;
+        slog("RS server " + U.SERVER_URL + " | load dumps " + U.LOAD_DUMPS);
+        try { slog("RS dump search-config-v2: " + await U.hasLocalDump("main", "search-config-v2")); } catch (e) { slog("hasLocalDump: " + e); }
+      } catch (e) { slog("RS Utils: " + e); }
+      try {
+        const r = await win.fetch("resource://app-defaults/settings/main/search-config-v2.json");
+        const t = await r.text();
+        slog("dump file readable: " + r.ok + ", " + t.length + " chars");
+      } catch (e) { slog("dump file NOT readable: " + e); }
+      try {
+        const RS = ChromeUtils.importESModule("resource://services-settings/remote-settings.sys.mjs").RemoteSettings;
+        const recs = await RS("search-config-v2").get({ syncIfEmpty: false });
+        slog("RS search-config-v2 records: " + recs.length);
+      } catch (e) { slog("RS get failed: " + e + (e && e.stack ? "\n" + e.stack : "")); }
+    }
+
     async function ensureDuckDuckGo(win) {
+      try { await diagnoseSearch(win); } catch (e) { slog("diagnose: " + e); }
       const search = findSearchService(win);
       if (!search) { slog("ERROR search service not found"); return; }
       slog("Icewolf search check started (" + Svc.appinfo.version + ")");

@@ -1497,6 +1497,24 @@ namespace Icewolf.Setup
             string prefDir = Path.Combine(engineDir, "defaults", "pref");
             var utf8 = new UTF8Encoding(false);
 
+            // LibreWolf loads its own librewolf.cfg (newer builds point to it from their built-in
+            // settings). That file must stay the browser's config file: LibreWolf only allows its
+            // built-in search engine list (and other data) when it is loaded. So Icewolf's scripts
+            // are added to the end of librewolf.cfg, and nothing redirects the browser elsewhere.
+            string lwCfg = Path.Combine(engineDir, "librewolf.cfg");
+            if (File.Exists(lwCfg))
+            {
+                string oldPrefFile = Path.Combine(prefDir, "icewolf-autoconfig.js");
+                if (File.Exists(oldPrefFile)) { File.Delete(oldPrefFile); Log("Browser scripts: removed old icewolf-autoconfig.js"); }
+                string oldCfg = Path.Combine(engineDir, "icewolf.cfg");
+                if (File.Exists(oldCfg)) File.Delete(oldCfg);
+                string lwText = File.ReadAllText(lwCfg);
+                if (lwText.IndexOf(js, StringComparison.Ordinal) >= 0) { Log("Browser scripts: up to date (librewolf.cfg)"); return; }
+                File.WriteAllText(lwCfg, RemoveButtonBlock(lwText).TrimEnd() + "\n\n" + js + "\n", utf8);
+                Log("Browser scripts: added to the end of librewolf.cfg");
+                return;
+            }
+
             // Does the engine already use an autoconfig file? Then add the button to it.
             if (Directory.Exists(prefDir))
             {
@@ -1526,23 +1544,7 @@ namespace Icewolf.Setup
                 "pref(\"general.config.filename\", \"icewolf.cfg\");\n" +
                 "pref(\"general.config.obscure_value\", 0);\n" +
                 "pref(\"general.config.sandbox_enabled\", false);\n", utf8);
-            // Newer LibreWolf builds point the browser at librewolf.cfg from their built-in settings
-            // (no file in defaults\pref). Icewolf's pref file replaces that pointer, so icewolf.cfg must
-            // load LibreWolf's own config first - otherwise LibreWolf's settings, its override file
-            // (librewolf.overrides.cfg) and its search setup are skipped.
-            string loader = "";
-            if (File.Exists(Path.Combine(engineDir, "librewolf.cfg")))
-            {
-                loader =
-                    "/* ICEWOLF-LOAD-LIBREWOLF: LibreWolf's own configuration runs first */\n" +
-                    "try {\n" +
-                    "  const lwCfg = Services.dirsvc.get(\"GreD\", Ci.nsIFile); lwCfg.append(\"librewolf.cfg\");\n" +
-                    "  if (lwCfg.exists()) Services.scriptloader.loadSubScript(Services.io.newFileURI(lwCfg).spec, this, \"UTF-8\");\n" +
-                    "} catch (e) { try { Components.utils.reportError(e); } catch (e2) { } }\n\n";
-                Log("Browser scripts: icewolf.cfg loads librewolf.cfg first");
-            }
-            else Log("Browser scripts: no librewolf.cfg in the engine");
-            string own = "// Icewolf configuration - the first line is ignored by the browser\n" + loader + js + "\n";
+            string own = "// Icewolf configuration - the first line is ignored by the browser\n" + js + "\n";
             string ownPath = Path.Combine(engineDir, "icewolf.cfg");
             if (File.Exists(ownPath) && File.ReadAllText(ownPath) == own) { Log("Browser scripts: up to date (icewolf.cfg)"); return; }
             File.WriteAllText(ownPath, own, utf8);
