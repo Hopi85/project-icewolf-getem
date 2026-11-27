@@ -128,9 +128,43 @@ try {
       Svc.prefs.setBoolPref(done, true);
       slog("default engine: " + (search.defaultEngine && search.defaultEngine.name));
     }
+    // ---- Only ONE "delete browsing data" button in the toolbar: Icewolf's flame ("Forget",
+    // panic-button). Newer engine versions bring a second button for the same job - that one
+    // is replaced by the flame at the same position. Logged to icewolf-search-log.txt.
+    function dedupeForgetButton(win) {
+      try {
+        let CUI = null;
+        for (const url of ["resource:///modules/CustomizableUI.sys.mjs",
+                           "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs"]) {
+          try { CUI = ChromeUtils.importESModule(url).CustomizableUI; if (CUI) break; } catch (e) { }
+        }
+        if (!CUI) { slog("toolbar check: CustomizableUI not found"); return; }
+        const doc = win.document;
+        const looksLikeForget = (id) => {
+          if (id === "panic-button") return false;
+          const n = doc.getElementById(id);
+          const text = [id, n && n.getAttribute("data-l10n-id"), n && n.getAttribute("command"),
+                        n && n.getAttribute("label"), n && n.getAttribute("tooltiptext")].join(" ");
+          return /forget|sanitize|panic|clear[\s_-]*(recent[\s_-]*)?(history|data|browsing)|delete[\s_-]*(browsing|history|data)/i.test(text);
+        };
+        for (const area of [CUI.AREA_NAVBAR, CUI.AREA_TABSTRIP, CUI.AREA_BOOKMARKS]) {
+          let ids = [];
+          try { ids = CUI.getWidgetIdsInArea(area); } catch (e) { continue; }
+          for (const id of ids.filter(looksLikeForget)) {
+            const placement = CUI.getPlacementOfWidget(id);
+            const flame = CUI.getPlacementOfWidget("panic-button");
+            if (!flame && placement) CUI.addWidgetToArea("panic-button", placement.area, placement.position);
+            CUI.removeWidgetFromArea(id);
+            slog("toolbar: removed duplicate delete-data button '" + id + "' (kept the flame)");
+          }
+        }
+      } catch (e) { slog("toolbar check: " + e); }
+    }
+
     Svc.obs.addObserver({
       observe(subject, topic) {
         Svc.obs.removeObserver(this, topic);
+        dedupeForgetButton(subject);
         ensureDuckDuckGo(subject).catch((e) => slog("ERROR " + (e && e.stack ? e.message + "\n" + e.stack : e)));
       }
     }, "browser-delayed-startup-finished");
