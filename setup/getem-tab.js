@@ -15,7 +15,7 @@ try {
     const GRAB = "icewolf-getem-grab";
     const GRAB_PLACED = "icewolf.getemgrab.placed";
     const TOOLBAR_PREF = "icewolf.toolbar.restored.1";
-    const GRAB_TIP = "Send this page to Getem (one click)";
+    const GRAB_TIP = "Getem: send this video to Getem (on other pages: open Getem)";
     const GRAB_ICON = "data:image/png;base64,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";   // red circle, yellow "G" (64 px PNG)
 
     // ------------------------------------------------------------ log (profile\getem-button-log.txt)
@@ -51,14 +51,15 @@ try {
       return l;
     }
     // Runs GetemHost.exe and resolves with its exit code (0 = started).
-    function runHelper(arg) {
+    function runHelper(arg, extra) {
       return new Promise((resolve, reject) => {
         const exe = helper();
         log("start helper " + arg + " (" + exe.path + ", exists=" + exe.exists() + ")");
         if (!exe.exists()) { reject(new Error("The Getem helper is missing:\n" + exe.path)); return; }
         const proc = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
         proc.init(exe);
-        proc.runwAsync([arg], 1, {
+        const argv = extra ? [arg, extra] : [arg];
+        proc.runwAsync(argv, argv.length, {
           observe(subject, topic) {
             if (topic === "process-finished") { log("helper exit code " + proc.exitValue); resolve(proc.exitValue); }
             else reject(new Error("The Getem helper could not be started (" + topic + ")."));
@@ -98,7 +99,7 @@ try {
       if (onWait) onWait();
       if (!starting) {
         starting = (async () => {
-          const code = await runHelper("/serve");
+          const code = await runHelper("/serve", String(Svc.appinfo.processID));   // Getem stops when Icewolf closes
           const hostLog = await readText(win, cacheFile("host-log.txt"));
           if (code !== 0) {
             const errors = hostLog.split(/\r?\n/).filter((l) => l.indexOf("ERROR ") >= 0);
@@ -175,11 +176,20 @@ try {
     async function grab(win, button) {
       if (!win || !win.gBrowser) throw new Error("No browser window found.");
       const uri = win.gBrowser.currentURI;
-      if (!uri || (uri.scheme !== "https" && uri.scheme !== "http")) {
-        flash(button, "error", "Only web pages can be sent to Getem.");
+      // No web page (new tab, settings, ...) or the Getem tab itself: just start / show Getem.
+      if (!uri || (uri.scheme !== "https" && uri.scheme !== "http") || uri.host === "127.0.0.1") {
+        flash(button, "busy", "Starting Getem…");
+        try {
+          const info = await ensureServer(win, () => flash(button, "busy", "Starting Getem… (first start installs its components)"));
+          openTab(win, info);
+          flash(button, "ok", "Getem is open");
+        } catch (e) {
+          log("ERROR " + e.message);
+          flash(button, "error", "Getem: " + e.message);
+          showError(win, "Getem could not be opened:\n\n" + e.message);
+        }
         return;
       }
-      if (uri.host === "127.0.0.1") { flash(button, "error", "This is Getem itself."); return; }
       flash(button, "busy", "Checking the link with Getem…");
       try {
         const info = await ensureServer(win, () =>
@@ -193,7 +203,13 @@ try {
         const res = await r.json();
         log("add_links " + uri.spec + " -> HTTP " + r.status + " " + JSON.stringify(res));
         if (!r.ok || res.error) throw new Error(res.error || ("error " + r.status));
-        if (res.failures && res.failures.length) throw new Error(res.failures[0].error);
+        if (res.failures && res.failures.length) {
+          // Getem is running but found no video on this page: show Getem anyway (e.g. to search).
+          log("no video on this page: " + res.failures[0].error);
+          flash(button, "error", "No video found on this page - Getem is open for searching.");
+          if (!findGetemTab(info)) openTab(win, info);
+          return;
+        }
         flash(button, "ok", "Added to the Getem queue ✓");
         // Getem not open yet? Then open it in a tab (with the link already in the queue).
         if (!findGetemTab(info)) openTab(win, info);

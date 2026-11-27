@@ -1873,6 +1873,9 @@ namespace Icewolf.Setup
                 if (string.IsNullOrEmpty(target) || File.Exists(target)) continue;          // still valid
                 string name = Path.GetFileName(target);
                 if (!name.Equals("Icewolf.exe", StringComparison.OrdinalIgnoreCase)) continue;   // not ours
+                // a pin of the installed Icewolf (Program Files) is left alone, even if it was uninstalled
+                string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                if (!string.IsNullOrEmpty(pf) && target.StartsWith(pf.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)) continue;
                 ShellLink.Retarget(lnk, launcher, Root, launcher);
                 Log("Taskbar pin repaired: " + Path.GetFileName(lnk) + " -> " + launcher);
             }

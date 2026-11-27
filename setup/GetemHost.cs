@@ -30,7 +30,10 @@ namespace Icewolf.GetemHost
                 {
                     // GetemTab test fork: Getem inside a browser tab. The browser reads the
                     // result from getem\.cache\host-log.txt if something goes wrong.
-                    string err = Launcher.Run("serve");
+                    // optional 2nd argument: the browser's process number - Getem stops when it closes
+                    uint pid;
+                    string browserPid = args.Length > 1 && uint.TryParse(args[1], out pid) && pid > 0 ? pid.ToString() : null;
+                    string err = Launcher.Run("serve", browserPid);
                     Launcher.Log(err == null ? "OK" : "ERROR " + err);
                     return err == null ? 0 : 1;
                 }
@@ -99,7 +102,9 @@ namespace Icewolf.GetemHost
     internal static class Launcher
     {
         /// <summary>Starts Getem (or its updater). Returns null on success, otherwise an error text.</summary>
-        public static string Run(string action)
+        public static string Run(string action) { return Run(action, null); }
+
+        public static string Run(string action, string browserPid)
         {
             string dir = GetemDir();
             if (dir == null) return "Getem is not installed. Please reinstall Icewolf.";
@@ -108,6 +113,7 @@ namespace Icewolf.GetemHost
                 return StartProcess(ComSpec(), "/c \"" + Path.Combine(dir, "Aktualisieren.cmd") + "\"", dir, true);
 
             string mode = action == "serve" ? " --server" : "";
+            string watch = browserPid != null ? " --browser-pid " + browserPid : "";   // digits only (parsed above)
             bool tabVersion = File.Exists(Path.Combine(dir, "server.py"));
             if (action == "serve" && !tabVersion)
                 return "This Getem version has no tab mode.";
@@ -130,10 +136,10 @@ namespace Icewolf.GetemHost
                 if (File.Exists(Path.Combine(dir, ".venv", "icewolf-ready")) && File.Exists(pythonw))
                 {
                     Log("starting Getem (" + starter + ")");
-                    return StartProcess(pythonw, "\"" + Path.Combine(dir, starter) + "\"" + (starter == "app.py" ? mode : ""), dir, false);
+                    return StartProcess(pythonw, "\"" + Path.Combine(dir, starter) + "\"" + (starter == "app.py" ? mode : watch), dir, false);
                 }
                 Log("first start - installing Getem's components (console window)");
-                return StartProcess(ComSpec(), "/c \"\"" + Path.Combine(dir, "Start.cmd") + "\"" + mode + "\"", dir, true);
+                return StartProcess(ComSpec(), "/c \"\"" + Path.Combine(dir, "Start.cmd") + "\"" + mode + (action == "serve" ? watch : "") + "\"", dir, true);
             }
 
             if (File.Exists(pythonw))

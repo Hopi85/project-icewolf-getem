@@ -17,11 +17,13 @@ try {
           ShellService.doesAppNeedStartMenuPin = async () => false;
           ShellService.pinCurrentAppToTaskbarAsync = async () => { };
           ShellService.pinToStartMenu = async () => false;
-          return;
+          return url;
         } catch (e) { }
       }
+      return null;
     }
-    Svc.obs.addObserver({ observe() { try { neutralizePinning(); } catch (e) { } } }, "final-ui-startup");
+    let pinResult = null;   // logged once the profile folder is available (see below)
+    Svc.obs.addObserver({ observe() { try { pinResult = neutralizePinning(); } catch (e) { } } }, "final-ui-startup");
 
     // ---- DuckDuckGo: make sure it exists and is the default (once - you can change it later).
     // Added here instead of by policy: a policy engine with the same name as a built-in one can
@@ -85,6 +87,7 @@ try {
     }
 
     async function ensureDuckDuckGo(win) {
+      slog("pin-to-taskbar prompts: " + (pinResult ? "switched off (" + pinResult + ")" : "NOT switched off - engine module not found"));
       try { await diagnoseSearch(win); } catch (e) { slog("diagnose: " + e); }
       const search = findSearchService(win);
       if (!search) { slog("ERROR search service not found"); return; }
