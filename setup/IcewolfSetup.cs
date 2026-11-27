@@ -1504,8 +1504,14 @@ namespace Icewolf.Setup
             string lwCfg = Path.Combine(engineDir, "librewolf.cfg");
             if (File.Exists(lwCfg))
             {
-                string oldPrefFile = Path.Combine(prefDir, "icewolf-autoconfig.js");
-                if (File.Exists(oldPrefFile)) { File.Delete(oldPrefFile); Log("Browser scripts: removed old icewolf-autoconfig.js"); }
+                // Icewolf's scripts (Getem button and menu, no pin prompts, DuckDuckGo) need the config
+                // file to run unrestricted, as it did before. Release builds restrict it by default, so
+                // this small file only switches that off - it does NOT change which file is loaded.
+                Directory.CreateDirectory(prefDir);
+                File.WriteAllText(Path.Combine(prefDir, "icewolf-autoconfig.js"),
+                    "// Icewolf: LibreWolf's librewolf.cfg also carries Icewolf's browser scripts,\n" +
+                    "// which need the config file to run unrestricted (the file name stays LibreWolf's).\n" +
+                    "pref(\"general.config.sandbox_enabled\", false);\n", utf8);
                 string oldCfg = Path.Combine(engineDir, "icewolf.cfg");
                 if (File.Exists(oldCfg)) File.Delete(oldCfg);
                 string lwText = File.ReadAllText(lwCfg);
