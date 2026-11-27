@@ -63,13 +63,13 @@ Both versions include Getem, a video search and download tool that lives right i
 
 | | |
 |---|---|
-| <img src="setup/assets/getem-g@2x.png" width="28" alt="G"> **One-click button** | On a video page (YouTube, TikTok, …), click the red **G** next to uBlock Origin. The link goes straight into Getem's download queue, and Getem opens in a tab if it isn't open yet. The button turns **green** when the video is queued and **red** with an explanation if something went wrong. |
+| <img src="setup/assets/getem-g@2x.png" width="28" alt="G"> **One-click button** | On a video page (YouTube, TikTok, …), click the red **G** next to uBlock Origin. The link goes straight into Getem's download queue, and Getem opens in a tab if it isn't open yet. On any other page (new tab, a page without a video), the button simply starts and opens Getem. The button turns **green** when the video is queued and **red** with an explanation if something went wrong. |
 | 📑 **Getem in a tab** | **Main menu (☰) → Getem** opens Getem inside Icewolf. The Start menu entry opens it in its own window. |
-| 📁 **Downloads** | Saved to `Downloads\Getem` by default. You can change the folder in Getem. |
+| 📁 **Downloads** | Installer: saved to `Downloads\Getem`. Portable: saved to `getem\downloads` inside the portable folder, so they stay on your USB stick. You can change the folder in Getem. |
 | 🐍 **Requirement** | [Python 3.10+](https://www.python.org/downloads/) (tick *"Add Python to PATH"* during setup). On the first start, Getem installs its download components once; a window shows the progress. |
 | 🔐 **Safe by design** | Getem runs as a small local server that is only reachable from your own PC (`127.0.0.1`) and needs a new random key on every start. Websites can't talk to it. It stops by itself when it's no longer used. |
 
-> ⚖ **Use responsibly.** Getem is meant for private copies of content you're allowed to download. Respect copyright and each service's terms. Getem doesn't bypass copy protection (DRM).
+> ⚖ **Use responsibly.** Getem is meant for private copies of content you're allowed to download. Respect copyright and each service's terms. Getem can't download DRM-protected content such as Netflix or Disney+. Downloading from some sites may still be restricted by law in your country (e.g. if it works around a site's technical protection), so check what applies to you.
 
 ---
 
@@ -104,7 +104,7 @@ All settings are **locked**, so updates can't bring anything back.
 ## 💡 Good to know
 
 - **Logged out after closing?** Cookies are deleted when Icewolf closes (a LibreWolf default). To stay logged in: *Settings → Privacy & Security* → untick deleting cookies on close.
-- **Netflix / Spotify don't play?** DRM is off by default: *Settings → General → Play DRM-controlled content*.
+- **Netflix / Spotify don't play?** DRM (Widevine) is off by default, and Icewolf switches it off again on every start. To keep it on, open `user.js` in your profile folder (portable: `profile\user.js`), change `media.eme.enabled` to `true`, and restart Icewolf.
 - **A 3D site or game doesn't load?** WebGL is off for privacy. Set `webgl.disabled` to `false` in `user.js`.
 - **Pin to taskbar:** open the Start menu, right-click **Icewolf**, choose **Pin to taskbar**.
 - **Getem problem?** Errors appear in a message box. For details, send `getem-button-log.txt` (browser profile folder) plus `host-log.txt` and `server-log.txt` from Getem's `.cache` folder (installer: `%LOCALAPPDATA%\Icewolf\Getem\.cache`, portable: `getem\.cache`).
