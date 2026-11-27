@@ -9,7 +9,7 @@ set "RESULT=%ERRORLEVEL%"
 del ".setup-running" >nul 2>&1
 if not "%RESULT%"=="0" goto error
 if /i "%~1"=="--server" (
-  start "" ".venv\Scripts\pythonw.exe" icewolf_server.py
+  start "" ".venv\Scripts\pythonw.exe" icewolf_server.py %2 %3
   exit /b 0
 )
 ".venv\Scripts\python.exe" app.py %*

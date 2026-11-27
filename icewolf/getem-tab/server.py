@@ -67,7 +67,38 @@ def _pick_folder(initial):
         return None
 
 
-def run(api, root):
+def _watch_browser(pid, on_closed):
+    """Calls on_closed() as soon as the Icewolf process `pid` has ended (Windows).
+    The process handle is opened while the browser runs, so a re-used process number
+    can never be mistaken for it."""
+    if os.name != "nt" or not pid:
+        return False
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.WaitForSingleObject.restype = wintypes.DWORD
+    k32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    SYNCHRONIZE = 0x00100000
+    handle = k32.OpenProcess(SYNCHRONIZE, False, pid)
+    if not handle:
+        return False                      # browser already gone / not visible: idle timer still applies
+
+    def wait():
+        try:
+            while k32.WaitForSingleObject(handle, 1000) != 0:   # 0 = process has ended
+                pass
+            on_closed()
+        finally:
+            k32.CloseHandle(handle)
+
+    threading.Thread(target=wait, daemon=True).start()
+    return True
+
+
+def run(api, root, browser_pid=None):
     token = secrets.token_urlsafe(32)
     cache = root / ".cache"
     cache.mkdir(exist_ok=True)
@@ -190,6 +221,14 @@ def run(api, root):
                 return
 
     threading.Thread(target=watchdog, daemon=True).start()
+
+    # Icewolf closed -> Getem stops right away (running downloads are cancelled).
+    def browser_closed():
+        print("Icewolf was closed - stopping Getem")
+        httpd.shutdown()
+    if _watch_browser(browser_pid, browser_closed):
+        print("watching Icewolf process", browser_pid)
+
     try:
         httpd.serve_forever(poll_interval=0.5)
     finally:
@@ -199,4 +238,11 @@ def run(api, root):
                 info_file.unlink()
         except (OSError, ValueError):
             pass
-        api._close()
+        # stop the download queue, but never hang on it
+        closer = threading.Thread(target=api._close, daemon=True)
+        closer.start()
+        closer.join(5)
+        sys.stdout.flush()
+        # End the whole process now: leftover download threads would otherwise keep Python
+        # running in the background. Helper programs (e.g. ffmpeg) end with it (job object).
+        os._exit(0)
