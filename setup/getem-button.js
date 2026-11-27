@@ -74,7 +74,8 @@ try {
       if (Svc.prefs.getBoolPref(TOOLBAR_PREF, false)) return;
       const CUI = loadCUI();
       if (!CUI) return;
-      for (const id of ["downloads-button", "panic-button"]) {
+      // (the browser brings its own "delete data" button - no second one)
+      for (const id of ["downloads-button"]) {
         try {
           if (CUI.getPlacementOfWidget(id)) continue;
           const ids = CUI.getWidgetIdsInArea(CUI.AREA_NAVBAR);
