@@ -16,8 +16,8 @@ import catalog
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache"
-QUALITIES = {"Beste Qualität": None, "Bis 1080p": 1080, "Bis 720p": 720, "Bis 480p": 480}
-FORMATS = ("MP4", "MKV", "MP3 (nur Ton)")
+QUALITIES = {"Best quality": None, "Up to 1080p": 1080, "Up to 720p": 720, "Up to 480p": 480}
+FORMATS = ("MP4", "MKV", "MP3 (audio only)")
 SEARCH_PROVIDERS = ("tubi", "ORF", "ARD", "ZDF", "3sat", "plex", "pluto")
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 FINISHED_FILE = re.compile(r"\[([^\]]+)\]\.(?:mkv|mp4|webm|mov|avi|m4v|ts|mp3)$", re.I)
@@ -33,7 +33,7 @@ def validate_url(value):
             or parsed.username is not None or parsed.password is not None
             or any(char.isspace() or ord(char) < 32 for char in value)
             or "\\" in parsed.netloc):
-        raise ValueError("Bitte einen vollständigen Weblink mit https:// oder http:// einfügen.")
+        raise ValueError("Please paste a complete web link starting with https:// or http://.")
     return value
 
 
@@ -44,14 +44,14 @@ def parse_urls(text):
             continue
         try:
             if any(char.isspace() for char in line.strip()):
-                raise ValueError("Bitte nur einen Link pro Zeile eingeben.")
+                raise ValueError("Please enter only one link per line.")
             url = validate_url(line)
         except ValueError as exc:
-            raise ValueError(f"Zeile {number}: {exc}") from exc
+            raise ValueError(f"Line {number}: {exc}") from exc
         if url not in urls:
             urls.append(url)
     if not urls:
-        raise ValueError("Bitte mindestens einen Videolink einfügen.")
+        raise ValueError("Please paste at least one video link.")
     return urls
 
 
@@ -61,8 +61,8 @@ def parse_progress(line):
     percent = min(100, max(0, float(match[1]))) if match else None
     speed = fields[1].strip() if len(fields) > 1 else ""
     eta = fields[2].strip() if len(fields) > 2 else ""
-    speed = speed if speed not in ("", "NA", "Unknown") else "wird ermittelt"
-    eta = eta if eta not in ("", "NA", "Unknown") else "wird ermittelt"
+    speed = speed if speed not in ("", "NA", "Unknown") else "calculating"
+    eta = eta if eta not in ("", "NA", "Unknown") else "calculating"
     return percent, speed, eta
 
 
@@ -78,7 +78,7 @@ def format_args(fmt, height):
     return ["-f", selector, "-S", "res,vcodec:h264,acodec:aac", "--merge-output-format", "mp4/mkv"]
 
 
-def command(url, probe=False, folder=None, quality="Beste Qualität", fmt="MP4"):
+def command(url, probe=False, folder=None, quality="Best quality", fmt="MP4"):
     args = [sys.executable, "-m", "yt_dlp", "--ignore-config", "--no-playlist",
             "--no-colors", "--newline", "--socket-timeout", "20", "--retries", "3"]
     if re.fullmatch(r"https://vod\.provider\.plex\.tv/library/metadata/[\w-]+", url):
@@ -110,24 +110,24 @@ def command(url, probe=False, folder=None, quality="Beste Qualität", fmt="MP4")
 def error_text(lines):
     """Turn the last yt-dlp error into a sentence that fits one queue row."""
     errors = [line for line in lines if line.startswith("ERROR")]
-    last = (errors or lines or ["Download fehlgeschlagen."])[-1].removeprefix("ERROR:").strip()
+    last = (errors or lines or ["Download failed."])[-1].removeprefix("ERROR:").strip()
     lowered = last.lower()
     if "drm" in lowered:
-        return "DRM-geschützt, kein ungeschützter Stream verfügbar."
+        return "DRM-protected, no unprotected stream available."
     if "unsupported url" in lowered:
-        return "Kein unterstütztes Video auf dieser Seite."
+        return "No supported video on this page."
     if any(term in lowered for term in ("sign in", "log in", "login required", "authentication required", "http error 401")):
-        return "Anmeldung erforderlich. Dieser Link ist ohne Anmeldung nicht verfügbar."
+        return "Sign-in required. This link is not available without signing in."
     if any(term in lowered for term in ("http error 403", "http error 429", "captcha", "not a bot")):
-        return "Die Website blockiert den Zugriff oder begrenzt die Anfragen. Bitte später erneut versuchen."
+        return "The website blocks access or limits requests. Please try again later."
     if any(term in lowered for term in ("timed out", "timeout", "getaddrinfo failed", "name resolution", "unable to download webpage", "connection refused")):
-        return "Website nicht erreichbar. Bitte Verbindung prüfen und erneut versuchen."
+        return "Website not reachable. Please check your connection and try again."
     if "geo restricted" in lowered or "not available in your country" in lowered:
-        return "In dieser Region nicht verfügbar."
+        return "Not available in this region."
     if any(term in lowered for term in ("http error 404", "video unavailable", "video has been removed")):
-        return "Video nicht mehr verfügbar oder Link nicht gefunden."
+        return "Video no longer available or link not found."
     if any(term in lowered for term in ("no video formats", "requested format is not available", "no media found")):
-        return "Kein passender ungeschützter Stream gefunden."
+        return "No suitable unprotected stream found."
     return safe_download_log(last)[:160]
 
 
@@ -258,7 +258,7 @@ class DownloadQueue:
                 else:
                     item.update(status="failed", error=error_text(lines))
                 item.update(speed="", eta="", note="")
-                self.log.append({"cancelled": "Abgebrochen", "done": "Fertig", "failed": "Fehlgeschlagen"}[item["status"]]
+                self.log.append({"cancelled": "Cancelled", "done": "Done", "failed": "Failed"}[item["status"]]
                                 + f": {item['title']}")
 
     def download(self, item):
@@ -286,7 +286,7 @@ class DownloadQueue:
                     with self.lock:
                         self.log.append(line[:300])
                         if line.startswith("[Merger]"):
-                            item["note"] = "Wird zusammengeführt"
+                            item["note"] = "Merging"
             return process.wait() == 0, lines
         finally:
             process.stdout.close()
@@ -304,12 +304,12 @@ class Api:
         self._thumbs = self._read_json("thumbs.json")
         self._thumbs_lock = threading.Lock()
         self._pending = set()
-        self._settings = {"folder": str(ROOT / "downloads"), "quality": "Bis 1080p", "format": FORMATS[0],
+        self._settings = {"folder": str(ROOT / "downloads"), "quality": "Up to 1080p", "format": FORMATS[0],
                           **self._read_json("settings.json")}
         if self._settings["format"] not in FORMATS:
             self._settings["format"] = FORMATS[0]
         if self._settings["quality"] not in QUALITIES:
-            self._settings["quality"] = "Bis 1080p"
+            self._settings["quality"] = "Up to 1080p"
 
     @staticmethod
     def _read_json(name):
@@ -406,7 +406,7 @@ class Api:
         try:
             urls = parse_urls(text)
             if any("*" in urlsplit(url).path for url in urls):
-                raise ValueError("Bitte einzelne Videolinks verwenden, keine Platzhalter.")
+                raise ValueError("Please use single video links, no wildcards.")
         except ValueError as exc:
             return {"error": str(exc)}
         target = self._target()
@@ -431,17 +431,17 @@ class Api:
             if not isinstance(info, dict):
                 raise ValueError("Invalid metadata")
         except subprocess.TimeoutExpired:
-            return {"error": "Die Linkprüfung dauert zu lange. Bitte erneut versuchen."}
+            return {"error": "Checking the link takes too long. Please try again."}
         except OSError:
-            return {"error": "Linkprüfung konnte nicht gestartet werden. Bitte Aktualisieren.cmd ausführen."}
+            return {"error": "The link check could not be started. Please update the download components (Shift+click Getem in the Icewolf menu)."}
         except (StopIteration, ValueError, subprocess.SubprocessError):
-            return {"error": "Keine gültigen Videoinformationen erhalten. Bitte Aktualisieren.cmd ausführen und erneut versuchen."}
+            return {"error": "No valid video information received. Please update the download components (Shift+click Getem in the Icewolf menu) and try again."}
         if info.get("_type") in ("playlist", "multi_video"):
-            return {"error": "Bitte einen einzelnen Videolink statt einer Sammlung verwenden."}
+            return {"error": "Please use a single video link instead of a collection."}
         if info.get("has_drm"):
-            return {"error": "DRM-geschützt, kein ungeschützter Stream verfügbar."}
+            return {"error": "DRM-protected, no unprotected stream available."}
         if not info.get("url") and not any(f.get("url") and not f.get("has_drm") for f in info.get("formats") or []):
-            return {"error": "Kein passender ungeschützter Stream gefunden."}
+            return {"error": "No suitable unprotected stream found."}
         image = info.get("thumbnail")
         return {"url": url, "title": info.get("title") or urlsplit(url).hostname,
                 "img": image if catalog.web_url(image) else None}
@@ -489,7 +489,7 @@ def main():
 
 if __name__ == "__main__":
     if "--server" in sys.argv:
-        # Icewolf GetemTab test fork: interface in a browser tab instead of its own window
+        # Icewolf Getem Edition: interface in a browser tab instead of its own window
         import server
         server.run(Api(), ROOT)
     else:

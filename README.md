@@ -51,7 +51,7 @@ Go to **[Releases](../../releases/latest)** and pick one:
 
 Want Icewolf without Getem? Download it from the main <a href="https://github.com/Hopi85/project-icewolf"><b>Project Icewolf</b></a> repository.
 
-> **"Windows protected your PC"?** The setup isn't code-signed (a certificate costs money), so Windows warns about it. Click **More info → Run anyway**. Each file has a `.sha256` checksum so you can check that your download wasn't altered.
+> **"Windows protected your PC"?** The setup isn't code-signed (a certificate costs money), so Windows warns about it. Click **More info → Run anyway**. On PCs with Windows 11 *Smart App Control* switched on, unsigned programs are blocked outright and Icewolf can't run there until it has a code-signing certificate. Each file has a `.sha256` checksum so you can check that your download wasn't altered.
 
 **Import your bookmarks** from Chrome, Edge, Brave, Opera or Vivaldi: *Settings → General → Import browser data*.
 
@@ -66,8 +66,8 @@ Both versions include Getem, a video search and download tool that lives right i
 | <img src="setup/assets/getem-g@2x.png" width="28" alt="G"> **One-click button** | On a video page (YouTube, TikTok, …), click the red **G** next to uBlock Origin. The link goes straight into Getem's download queue, and Getem opens in a tab if it isn't open yet. On any other page (new tab, a page without a video), the button simply starts and opens Getem. The button turns **green** when the video is queued and **red** with an explanation if something went wrong. |
 | 📑 **Getem in a tab** | **Main menu (☰) → Getem** opens Getem inside Icewolf. The Start menu entry opens it in its own window. |
 | 📁 **Downloads** | Installer: saved to `Downloads\Getem`. Portable: saved to `getem\downloads` inside the portable folder, so they stay on your USB stick. You can change the folder in Getem. |
-| 🐍 **Requirement** | [Python 3.10+](https://www.python.org/downloads/) (tick *"Add Python to PATH"* during setup). On the first start, Getem installs its download components once; a window shows the progress. |
-| 🔐 **Safe by design** | Getem runs as a small local server that is only reachable from your own PC (`127.0.0.1`) and needs a new random key on every start. Websites can't talk to it. It stops by itself when it's no longer used. |
+| 🐍 **Requirement** | [Python 3.11+](https://www.python.org/downloads/) (tick *"Add Python to PATH"* during setup). On the first start, Getem installs its download components once; a window shows the progress. |
+| 🔐 **Safe by design** | Getem runs as a small local server that is only reachable from your own PC (`127.0.0.1`) and needs a new random key on every start. Websites can't talk to it, and the key never appears in the address bar or your history (the Getem tab is opened with a one-time code). It stops by itself when it's no longer used. |
 
 > ⚖ **Use responsibly.** Getem is meant for private copies of content you're allowed to download. Respect copyright and each service's terms. Getem can't download DRM-protected content such as Netflix or Disney+. Downloading from some sites may still be restricted by law in your country (e.g. if it works around a site's technical protection), so check what applies to you.
 
@@ -96,7 +96,8 @@ All settings are **locked**, so updates can't bring anything back.
 - **Connections:** HTTPS-only mode, encrypted DNS (Quad9), no WebRTC IP leaks, TLS 1.2+.
 - **Hardening:** strict certificate pinning, no JavaScript in PDFs, add-ons injected by other programs are blocked.
 - **Fingerprinting:** Firefox's fingerprinting protection is on. LibreWolf's stricter "resist fingerprinting" mode is off, because it breaks dark mode and time zones.
-- **Verified engine:** every build and every update checks LibreWolf's official checksum and digital signatures. If anything doesn't match, it stops.
+- **Verified engine:** every build and every update checks LibreWolf's official checksum and the digital signature of every program file (each one must be signed by LibreWolf's publisher; only Microsoft's C++ runtime files may carry Microsoft's signature). If anything doesn't match, it stops. Note: `icewolf.exe` itself is a rebranded copy of LibreWolf's signed `librewolf.exe`, so it carries no signature (Windows may warn about it, see the note on the setup above).
+- **Deliberate trade-offs (inherited from LibreWolf):** Google Safe Browsing is off (it would send data to Google), and certificate revocation is checked with CRLite instead of OCSP (OCSP tells the certificate authority which sites you visit). Encrypted DNS falls back to your normal DNS if Quad9 can't be reached, so the browser keeps working on networks that block it.
 - **The only connections left:** engine updates, uBlock filter lists, security blocklists and encrypted DNS. None of them sends browsing or usage data.
 
 ---
@@ -104,6 +105,7 @@ All settings are **locked**, so updates can't bring anything back.
 ## 💡 Good to know
 
 - **Logged out after closing?** Cookies are deleted when Icewolf closes (a LibreWolf default). To stay logged in: *Settings → Privacy & Security* → untick deleting cookies on close.
+- **Your own `librewolf.overrides.cfg` is not used.** Icewolf's settings are part of its program files, and LibreWolf's per-user overrides file is switched off: Icewolf runs its own browser scripts with full rights, and that file would run the same way, so any program on the PC could have used it to change the browser. Change settings in `user.js` (see below) instead.
 - **Netflix / Spotify don't play?** DRM (Widevine) is off by default, and Icewolf switches it off again on every start. To keep it on, open `user.js` in your profile folder (portable: `profile\user.js`), change `media.eme.enabled` to `true`, and restart Icewolf.
 - **A 3D site or game doesn't load?** WebGL is off for privacy. Set `webgl.disabled` to `false` in `user.js`.
 - **Pin to taskbar:** open the Start menu, right-click **Icewolf**, choose **Pin to taskbar**.
@@ -119,7 +121,7 @@ No extra software needed, only Windows' built-in tools:
 2. Double-click **`Build-Icewolf-Setup.bat`**.
 3. The `dist` folder opens with the installer and the portable version, both with Getem.
 
-The build downloads the newest signed LibreWolf release from LibreWolf's official servers and **stops unless** the checksum matches and every signature is valid. The installer checks the signatures again on each PC. If something fails, `build-log.txt` explains why.
+The build downloads the newest signed LibreWolf release from LibreWolf's official servers and **stops unless** the checksum matches and every program file is validly signed by LibreWolf's publisher (or, for Microsoft's C++ runtime files, by Microsoft). The installer checks the signatures again on each PC. If something fails, `build-log.txt` explains why.
 
 GitHub also builds Icewolf automatically every week and for every version tag (`v1.0`, `v1.1`, …), see [`.github/workflows`](.github/workflows).
 

@@ -1,8 +1,9 @@
 ﻿// =====================================================================
-//  Icewolf - Getem helper (native messaging host)
-//  Started by the browser when the Getem toolbar button is used. It accepts
-//  exactly two commands from the Getem extension - "start" and "update" - and
-//  nothing else. Can also be started directly with /start (Start menu shortcut).
+//  Icewolf - Getem helper
+//  Started by Icewolf's browser script (getem-tab.js) with /serve <browser pid>
+//  (Getem as a local server inside a tab) or /update (Shift+click: update yt-dlp),
+//  and by the Start menu entry with /start (Getem in its own window).
+//  The stdin "native messaging" mode below is kept for Icewolf versions before 1.3.
 //  Language level: C# 5 (compiled with the compiler built into Windows).
 // =====================================================================
 using System;
@@ -133,7 +134,7 @@ namespace Icewolf.GetemHost
                 }
                 // Browser tab: Getem as a local server. Start menu: Getem's own window.
                 string starter = action == "serve" && File.Exists(Path.Combine(dir, "icewolf_server.py")) ? "icewolf_server.py" : "app.py";
-                if (File.Exists(Path.Combine(dir, ".venv", "icewolf-ready")) && File.Exists(pythonw))
+                if (ComponentsReady(dir) && File.Exists(pythonw))
                 {
                     Log("starting Getem (" + starter + ")");
                     return StartProcess(pythonw, "\"" + Path.Combine(dir, starter) + "\"" + (starter == "app.py" ? mode : watch), dir, false);
@@ -147,6 +148,25 @@ namespace Icewolf.GetemHost
 
             // First start: Start.cmd creates the Python environment (visible, shows progress)
             return StartProcess(ComSpec(), "/c \"\"" + Path.Combine(dir, "Start.cmd") + "\"" + mode + "\"", dir, true);
+        }
+
+        /// <summary>
+        /// True if Getem's Python packages were installed for exactly the current requirements.txt
+        /// (Start.cmd copies it into .venv\icewolf-ready when the installation succeeded). After an
+        /// Icewolf update with other package versions, the installation runs once more.
+        /// </summary>
+        private static bool ComponentsReady(string dir)
+        {
+            try
+            {
+                string marker = Path.Combine(dir, ".venv", "icewolf-ready");
+                string req = Path.Combine(dir, "requirements.txt");
+                if (!File.Exists(marker) || !File.Exists(req)) return false;
+                bool same = File.ReadAllText(marker).Trim() == File.ReadAllText(req).Trim();
+                if (!same) Log("Getem's package list changed - installing components again");
+                return same;
+            }
+            catch { return false; }
         }
 
         /// <summary>Appends a line to getem\.cache\host-log.txt (read by the browser on errors).</summary>

@@ -22,10 +22,10 @@ class GetemPlexIE(InfoExtractor):
         try:
             container = client.get("/library/metadata/" + video_id, {"includeMedia": 1})
         except Exception:
-            raise ExtractorError("Plex-Metadaten nicht abrufbar. Verbindung oder regionale Verfügbarkeit prüfen.", expected=True)
+            raise ExtractorError("Plex metadata not available. Check your connection or regional availability.", expected=True)
         rows = container.get("Metadata") or []
         if not rows:
-            raise ExtractorError("Plex bietet diese Episode hier nicht an.", expected=True)
+            raise ExtractorError("Plex does not offer this episode here.", expected=True)
         item = rows[0]
         # Catalogue metadata can omit playback parts. Request a fresh play queue
         # for this episode, rather than assuming a catalogue entry is a stream.
@@ -38,7 +38,7 @@ class GetemPlexIE(InfoExtractor):
                 if selected:
                     item = {**item, **selected}
             except Exception:
-                raise ExtractorError("Plex-Wiedergabe nicht abrufbar. Region oder Verfügbarkeit prüfen.", expected=True) from None
+                raise ExtractorError("Plex playback not available. Check region or availability.", expected=True) from None
         formats = []
         for media in item.get("Media") or []:
             if protected(media):
@@ -62,7 +62,7 @@ class GetemPlexIE(InfoExtractor):
             if urlsplit(fmt.get("url", "")).hostname == "vod.provider.plex.tv":
                 fmt["http_headers"] = {**fmt.get("http_headers", {}), **client.headers}
         if not formats:
-            raise ExtractorError("Plex liefert keinen unterstützten ungeschützten Stream. DRM oder regionale Einschränkung möglich.", expected=True)
+            raise ExtractorError("Plex offers no supported unprotected stream. DRM or a regional restriction is possible.", expected=True)
         return {"id": video_id, "title": item.get("title") or video_id, "formats": formats,
                 "series": item.get("grandparentTitle"), "season_number": item.get("parentIndex"),
                 "episode_number": item.get("index")}

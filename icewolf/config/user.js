@@ -5,9 +5,10 @@
 //  HERE (changes made in about:config get overwritten on restart).
 //
 //  Design rules:
-//   - Never weaken security: sandboxing, certificate checks and
-//     malware lists (uBlock Origin) stay ON. Engine updates come from
-//     the Icewolf updater.
+//   - Keep security on: process sandboxing, certificate checks and
+//     uBlock Origin's malware lists stay ON. Engine updates come from
+//     the Icewolf updater. Deliberate privacy trade-offs: Google Safe
+//     Browsing is off and OCSP is replaced by CRLite (see README).
 //   - Remove telemetry, ads, sponsored content, AI features and
 //     anything that phones home without being needed.
 //   - Don't break normal websites.

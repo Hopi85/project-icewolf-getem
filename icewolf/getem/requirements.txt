@@ -1,4 +1,8 @@
-yt-dlp[default]
-imageio-ffmpeg>=0.6.0
-pywebview>=5.0
-curl_cffi
+# Getem's Python packages - exact versions (checked 28 Nov 2026), so every install gets the same,
+# known code instead of whatever is newest on PyPI at that moment. Installed with --prefer-binary.
+# "Update download components" (Shift+click on Getem in the menu / Aktualisieren.cmd) deliberately
+# upgrades yt-dlp only, because it has to follow website changes. yt-dlp needs Python 3.11+.
+yt-dlp[default]==2026.11.23
+imageio-ffmpeg==0.8.2
+pywebview==6.2.1
+curl_cffi==0.17.0

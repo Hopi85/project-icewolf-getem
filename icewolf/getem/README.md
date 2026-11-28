@@ -1,154 +1,157 @@
 # Getem
 
-Lokale Windows-App für Videolinks und Serien-/Sendungssuche.
+Local Windows app for video links and series/program search.
 
 ## Start
 
-Start.cmd doppelklicken. Aktualisieren.cmd aktualisiert die Download-Komponenten.
-Die Oberfläche läuft mit pywebview in WebView2, das unter Windows 11 vorinstalliert ist.
+In Icewolf: the red "G" button in the toolbar or ☰ menu → **Getem** opens Getem in a browser tab.
+Shift+click on the menu entry updates the download components (yt-dlp).
+On its own: double-click `Start.cmd`; `Aktualisieren.cmd` updates the download components.
+The standalone window runs with pywebview in WebView2, which comes preinstalled on Windows 11.
+Requires Python 3.11 or newer.
 
-## Bedienung
+## How to use it
 
-Treffer erscheinen als Kachelwand, die Folgen fahren rechts ein, die Warteschlange liegt immer sichtbar unten.
+Results appear as a wall of tiles, episodes slide in from the right, and the queue is always visible at the bottom.
 
-1. Namen ins Suchfeld eingeben und Enter drücken. Tubi, Pluto TV, Plex, ORF ON, ARD, ZDF und 3sat
-   werden gleichzeitig durchsucht. Jeder Anbieter zeigt Trefferzahl oder Fehler;
-   ein Klick auf einen Anbieter blendet seine Treffer aus oder ein.
-2. Links einen Treffer anklicken. In der Mitte erscheinen Staffeln und Folgen.
-3. Folgen anhaken. Das Staffel-Kästchen wählt alle Folgen, Umschalt+Klick einen Bereich.
-4. **Herunterladen** legt die Auswahl in die Warteschlange. Weitersuchen geht jederzeit.
+1. Type a name into the search box and press Enter. Tubi, Pluto TV, Plex, ORF ON, ARD, ZDF and 3sat
+   are searched at the same time. Each provider shows its number of results or an error;
+   clicking a provider hides or shows its results.
+2. Click a result. Its seasons and episodes appear on the right.
+3. Tick episodes. The season box selects all episodes, Shift+click selects a range.
+4. **Download** adds the selection to the queue. You can keep searching at any time.
 
-**Links einfügen** oben rechts öffnet ein Feld für YouTube, TikTok und andere Videolinks,
-ein Link pro Zeile. Ein Link im Suchfeld öffnet dieses Feld automatisch. Format, Qualität und Zielordner
-stehen im Knopf oben rechts (zum Beispiel „MP4 · 1080p“).
-**Prüfen & herunterladen** prüft eingefügte Links vor dem Einreihen mit yt-dlp.
-Unterstützte Websites, generisch erkennbare Videos und direkte Medienlinks
-(etwa MP4, HLS oder DASH) verwenden denselben Ablauf. Während der Prüfung ist
-die Linkeingabe gesperrt; pro Link gilt eine Zeitgrenze von 60 Sekunden.
-Erfolgreich geprüfte Links werden mit Titel und gegebenenfalls Vorschaubild
-eingereiht. Fehlerhafte Links bleiben mit einer Erklärung im Eingabefeld;
-erneutes Prüfen reiht die bereits erfolgreichen Links nicht nochmals ein.
-Die Prüfung erkennt keine beliebigen Player und garantiert keinen späteren
-Download: Verfügbarkeit, Formatwahl und Zugriff können sich weiterhin ändern.
-Bei Anbieteränderungen zuerst Aktualisieren.cmd ausführen.
-Das ✕ leert das Suchfeld, ein Klick aufs Logo führt zurück zur Suche.
-TikTok-Videos werden automatisch ohne das zusätzliche Download-Wasserzeichen
-geladen. Getem schließt die TikTok-Downloadkopien aus und verwendet die
-Wiedergabefassungen. Ist keine verfügbar, erscheint ein Fehler statt einer
-Datei mit Wasserzeichen. Bereits im Original enthaltene Logos bleiben erhalten;
-vorhandene Dateien werden dadurch nicht nachträglich verändert. MP3 bleibt unverändert.
-Tastatur: Strg+K (Suche), Esc (Suche leeren), Strg+Enter (Herunterladen).
+**Paste links** at the top right opens a box for YouTube, TikTok and other video links,
+one link per line. Pasting a link into the search box opens this box automatically. Format, quality and
+download folder are in the button at the top right (for example "MP4 · 1080p").
+**Check & download** checks pasted links with yt-dlp before adding them to the queue.
+Supported websites, videos that can be detected generically and direct media links
+(such as MP4, HLS or DASH) all use the same flow. While the check runs, the link box is
+locked; each link has a time limit of 60 seconds.
+Links that pass the check are added with their title and, where available, a preview image.
+Links that fail stay in the box with an explanation; checking again does not add the
+links that already succeeded a second time.
+The check does not recognize every player and does not guarantee a later download:
+availability, format choice and access can still change.
+If a provider changed something, update the download components first.
+The ✕ clears the search box; clicking the logo goes back to the search.
+TikTok videos are downloaded without the extra download watermark automatically:
+Getem skips TikTok's download copies and uses the playback versions. If none is available,
+you get an error instead of a file with a watermark. Logos that are part of the original video
+stay; existing files are not changed afterwards. MP3 is not affected.
+Keyboard: Ctrl+K (search), Esc (clear search), Ctrl+Enter (download).
 
-### Warteschlange
+### Queue
 
-Es läuft immer ein Download. **✕ Abbrechen** stoppt nur den aktuellen, der nächste
-startet sofort. Das ✕ bei wartenden Einträgen entfernt sie. **Alle abbrechen** stoppt
-den aktuellen und leert die Wartenden, nach einer Rückfrage per zweitem Klick.
-↻ startet abgebrochene oder fehlgeschlagene Einträge neu. Teil-Dateien bleiben
-erhalten, der Download setzt dort wieder an.
+One download runs at a time. **✕ Cancel** stops only the current one; the next one
+starts right away. The ✕ on waiting entries removes them. **Cancel all** stops
+the current download and clears the waiting ones, after confirming with a second click.
+↻ restarts cancelled or failed entries. Partial files are kept, and the download
+continues where it stopped.
 
-Bereits geladene Folgen werden anhand der ID im Dateinamen als **Vorhanden** markiert.
-Tubi, Pluto TV und Plex liefern dafür die Folgen-ID, die auch im Dateinamen steht.
+Episodes that were already downloaded are marked **Downloaded**, based on the ID in the file name.
+Tubi, Pluto TV and Plex provide the episode ID for this, which is also part of the file name.
 
 ### Thumbnails
 
-Tubi liefert Bilder direkt. MediathekView hat keine Bildfelder, deshalb kommt das Bild
-aus dem `og:image` der Beitragsseite, sobald eine Zeile sichtbar wird. Gefundene Adressen
-liegen in `.cache/thumbs.json`. Bei ARD klappt das nur teilweise; fehlt ein Bild,
-erscheint eine Titelkachel.
+Tubi provides images directly. MediathekView has no image fields, so the image comes from
+the `og:image` of the program page as soon as a row becomes visible. Found addresses
+are stored in `.cache/thumbs.json`. This works only partly for ARD; if an image is missing,
+a title tile is shown instead.
 
-### Suche
+### Search
 
-Sortierung: **Beste Übereinstimmung**, **Titel A–Z / Z–A**, **Jahr (neueste / älteste
-zuerst)**. Bei Tubi werden unpassende Empfehlungen ausgeblendet. Apostrophe, Groß-/
-Kleinschreibung und Akzente werden normalisiert: `hells kitchen` findet auch
-`Hell’s Kitchen`.
+Sorting: **Best match**, **Title A–Z / Z–A**, **Year (newest / oldest first)**.
+For Tubi, unrelated recommendations are hidden. Apostrophes, upper/lower case and
+accents are normalized: `hells kitchen` also finds `Hell’s Kitchen`.
 
-**Plex:** Gastzugang über `clients.plex.tv`, mit Website-Host als Fallback bei
-HTTP 404/405. Die Suche verwendet den Plex-eigenen Movies-&-Shows-Katalog;
-Serien- und Staffelpfade mit `/children` werden normalisiert. Bilder, Beschreibung,
-Staffeln und Folgen werden übernommen. Beim Download werden Medieninformationen
-angefragt und bei fehlenden Parts eine Wiedergabesitzung erzeugt. Nur verfügbare
-ungeschützte Streams werden geladen. Live-Verifikation dieser Änderung steht aus.
+**Plex:** guest access through `clients.plex.tv`, with the website host as a fallback on
+HTTP 404/405. The search uses Plex's own Movies & Shows catalog;
+series and season paths with `/children` are normalized. Images, description,
+seasons and episodes are taken over. For a download, media information is requested,
+and a playback session is created if parts are missing. Only available,
+unprotected streams are downloaded. A live check of this part is still pending.
 
-**Pluto TV:** Suche im regionalen On-Demand-Serienkatalog, Staffel-/Folgenauswahl
-und eigener Download-Resolver mit frischem Gasttoken. Live-TV-Aufnahmen sind nicht
-enthalten. Kategorien werden seitenweise geladen und Serien dedupliziert. Pluto
-kann Titel innerhalb einer Kategorie begrenzen; der Anbieter-Hinweis im Tooltip
-weist dann auf möglicherweise fehlende Treffer hin. Keine Vollständigkeitsgarantie.
-Der eigene Resolver ersetzt für einzelne Folgen den veralteten yt-dlp-Pluto-Pfad.
+**Pluto TV:** search in the regional on-demand series catalog, season/episode selection
+and its own download resolver with a fresh guest token. Live TV recordings are not
+included. Categories are loaded page by page and series are de-duplicated. Pluto
+can limit the titles within a category; the provider note in the tooltip
+then points out that results may be missing. Completeness is not guaranteed.
+The own resolver replaces yt-dlp's outdated Pluto path for single episodes.
 
-ARTE ist aus der Suche genommen, weil `Mediathek.search`
-die Sender `ARTE.DE`, `ARTE.FR` usw. nicht als `ARTE` erkennt.
+ARTE is left out of the search because `Mediathek.search`
+does not recognize the channels `ARTE.DE`, `ARTE.FR` etc. as `ARTE`.
 
-Angebundene Kataloge: Tubi, Pluto TV und Plex sowie ORF ON, ARD, ZDF, ARTE und 3sat über
-MediathekView. Tubi nutzt den anonymen Gastzugang, den Staffelindex und
-seitenweise Episodenabfragen. Tokens bleiben im Arbeitsspeicher und werden
-weder gespeichert noch protokolliert.
+Connected catalogs: Tubi, Pluto TV and Plex, plus ORF ON, ARD, ZDF, ARTE and 3sat through
+MediathekView. Tubi uses the anonymous guest access, the season index and
+episode requests page by page. Tokens stay in memory and are
+neither saved nor logged.
 
-MediathekView liefert aktuell gelistete Themen und Beiträge, keine Garantie
-vollständiger Staffeln. Nur eindeutige SxxExx-Angaben werden als Staffelnummer
-verwendet; andere Beiträge stehen unter **Ohne Staffelzuordnung**. Suchtreffer
-können auch Magazine und Dokumentationen sein. Die Suche ist auf 1.000 Beiträge,
-die Folgenliste auf 10.000 begrenzt; bei Erreichen erscheint ein Hinweis.
+MediathekView provides currently listed topics and items; complete seasons are not
+guaranteed. Only clear SxxExx details are used as season numbers;
+other items are listed under **No season assigned**. Search results
+can also be magazines and documentaries. The search is limited to 1,000 items,
+the episode list to 10,000; a note appears when a limit is reached.
 
-Joyn Österreich (PULS 4/PULS 24/ATV) und ServusTV On sind Kandidaten,
-aber noch nicht als Namenssuche angebunden. YouTube und TikTok funktionieren über Links im Suchfeld.
-Weitere Anbieter können über search(name) / episodes(show) in catalog.py ergänzt
-werden. Es gibt keine universelle Suchschnittstelle aller Streamingseiten.
-`discovery.py` wird von der Oberfläche nicht mehr verwendet.
+Joyn Austria (PULS 4/PULS 24/ATV) and ServusTV On are candidates,
+but not yet connected to the name search. YouTube and TikTok work through links in the search box.
+More providers can be added through search(name) / episodes(show) in catalog.py.
+There is no universal search interface for all streaming sites.
+`discovery.py` is no longer used by the interface.
 
 ### Proton VPN
 
-Den bereits installierten Proton-VPN-Client vor der Suche mit dem gewünschten
-Land verbinden. Getem verwendet die Windows-Netzwerkverbindung; kein zusätzlicher
-VPN-Anbieter, kein VPN-Passwort in Getem und keine automatische Standortumschaltung.
-Bei Split-Tunneling muss die Python-Laufzeit von Getem im VPN-Tunnel liegen.
-Nach einem Länderwechsel erneut suchen, damit auch die Folgenliste frisch geladen
-wird. Während laufender Downloads die Verbindung nicht wechseln. Die App prüft
-nicht automatisch, ob Proton verbunden ist; Anbieter können VPN-Adressen ablehnen.
+Connect the Proton VPN client you already have installed to the country you want
+before searching. Getem uses the Windows network connection; no additional
+VPN provider, no VPN password in Getem and no automatic location switching.
+With split tunneling, Getem's Python runtime has to be inside the VPN tunnel.
+After changing the country, search again so the episode list is loaded fresh as well.
+Don't change the connection while downloads are running. The app does not
+check automatically whether Proton is connected; providers may reject VPN addresses.
 
 ## Downloads
 
-Fehler stoppen nicht die folgenden Downloads. Nicht jede Website ist unterstützt.
+Errors don't stop the following downloads. Not every website is supported.
 
-Standardordner: downloads. Ordner, Format und Qualität bleiben in `.cache/settings.json` gespeichert. Format wählbar: **MP4** (Standard, bevorzugt H.264 für alle Geräte; passt ein Video nicht hinein, entsteht MKV),
-**MKV** (beste verfügbare Fassung ohne Rücksicht auf Geräte) oder **MP3 (nur Ton)**.
-Format und Qualität gelten für alles, was danach in die Warteschlange kommt.
-Qualität ist eine Obergrenze; gibt es keine Fassung darunter, wird die kleinste geladen. Fortschritt, Tempo und
-Restzeit gelten für den aktuellen Video-/Audio-Teil. Bei segmentierten Downloads
-werden bis zu vier Abschnitte gleichzeitig geladen.
+Default folder: `downloads` (in Icewolf: `Downloads\Getem`). Folder, format and quality are saved in
+`.cache/settings.json`. Available formats: **MP4** (default, prefers H.264 so it plays on every
+device; if a video doesn't fit, it becomes MKV), **MKV** (best available version regardless of
+devices) or **MP3 (audio only)**.
+Format and quality apply to everything added to the queue afterwards.
+Quality is an upper limit; if there is no version below it, the smallest one is downloaded. Progress, speed and
+remaining time refer to the current video/audio part. For segmented downloads,
+up to four parts are downloaded at the same time.
 
-## Grenzen und Validierung
+## Limits and validation
 
-Region, Anmeldung, DRM, abgelaufene Inhalte und Anbieteränderungen können
-Kataloge und Downloads einschränken. Die App importiert keine Browser-Cookies
-und entschlüsselt kein DRM. Ein Katalogtreffer ist keine Downloadgarantie.
+Region, sign-in, DRM, expired content and provider changes can
+limit catalogs and downloads. The app does not import browser cookies
+and does not decrypt DRM. A catalog result is no guarantee that a download works.
 
-Live geprüft am 6.11.2026: Suche und Folgen bei Tubi, ORF, ARD, ZDF und 3sat; Downloads
-und Abbrechen mit Tubi-Folgen; vollständiger Download eines ORF-Beitrags.
+Live-checked on 6 Nov 2026: search and episodes at Tubi, ORF, ARD, ZDF and 3sat; downloading
+and cancelling Tubi episodes; a complete download of an ORF item.
 
-Erweiterung vom 7.11.2026: Pluto/Plex mit simulierten API-Antworten getestet
-(Gastzugang, Katalogseiten, Staffel-/Folgenzuordnung, Wiedergabeauflösung,
-DRM-Filter und Weitergabe an die Warteschlange). Live-Zugriffe aus der
-Entwicklungsumgebung sind durch die Netzwerk-Sandbox blockiert (WinError 10013).
-Ein erfolgreicher echter Pluto-/Plex-Download ist damit noch nicht bestätigt.
+Extension of 7 Nov 2026: Pluto/Plex tested with simulated API answers
+(guest access, catalog pages, season/episode assignment, playback resolution,
+DRM filter and hand-over to the queue). Live access from the
+development environment was blocked by its network sandbox (WinError 10013),
+so a successful real Pluto/Plex download is not confirmed yet.
 
-Die alte Tkinter-Fassung liegt in `_alt_tkinter/`.
+The old Tkinter version is in `_alt_tkinter/` (in the original Getem project, not shipped with Icewolf).
 
-TikTok-Erweiterung vom 14.11.2026: 71 Tests erfolgreich, einschließlich
-Wasserzeichen-Filter, Kurzlink-Weiterleitung und Download-Routing. Live-Prüfung
-an TikTok scheiterte am DNS-Timeout der Entwicklungsumgebung; ein echter
-Download ohne Wasserzeichen ist hier noch nicht bestätigt.
+TikTok extension of 14 Nov 2026: 71 tests passed, including the
+watermark filter, short-link redirects and download routing. A live check
+against TikTok failed because of a DNS timeout in the development environment, so a real
+download without a watermark is not confirmed here yet.
 
-Tests: `.venv\Scripts\python.exe -m unittest discover -s tests -v`
+Tests (in the original Getem project): `.venv\Scripts\python.exe -m unittest discover -s tests -v`
 
-## Technische Quellen
+## Technical sources
 
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - [MediathekViewWeb API](https://github.com/mediathekview/mediathekviewweb/blob/master/server/app.ts)
-- [Tubi-Katalogprotokoll](https://github.com/Breezyslasher/Kodi-Addons/blob/main/plugin.video.tubitv/resources/lib/tubi_api.py)
-- [Tubi-Gastzugangsprotokoll](https://github.com/Breezyslasher/Kodi-Addons/blob/main/plugin.video.tubitv/resources/lib/tubi_auth.py)
+- [Tubi catalog protocol](https://github.com/Breezyslasher/Kodi-Addons/blob/main/plugin.video.tubitv/resources/lib/tubi_api.py)
+- [Tubi guest access protocol](https://github.com/Breezyslasher/Kodi-Addons/blob/main/plugin.video.tubitv/resources/lib/tubi_auth.py)
 - [Plex Provider API](https://developer.plex.tv/pms/)
-- [Pluto-Boot- und Wiedergabeprotokoll in Streamlink](https://github.com/streamlink/streamlink/blob/master/src/streamlink/plugins/pluto.py)
-- [Pluto-Katalogprotokoll in OpenViX](https://github.com/OpenViX/PlutoTV/blob/master/src/PlutoDownload.py)
+- [Pluto boot and playback protocol in Streamlink](https://github.com/streamlink/streamlink/blob/master/src/streamlink/plugins/pluto.py)
+- [Pluto catalog protocol in OpenViX](https://github.com/OpenViX/PlutoTV/blob/master/src/PlutoDownload.py)

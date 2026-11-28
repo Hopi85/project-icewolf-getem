@@ -91,12 +91,12 @@ def tubi_metadata(html, episode_id):
     elif isinstance(series_name, str) and series_name.strip():
         key = "name:" + " ".join(series_name.casefold().split())
     else:
-        raise ValueError("Serienzugehörigkeit der Episode nicht eindeutig erkennbar. Bitte Serienübersicht verwenden.")
+        raise ValueError("Could not tell which series this episode belongs to. Please use the series overview.")
     try:
         season = int(season)
     except (ValueError, TypeError):
-        raise ValueError("Staffelnummer der Episode nicht eindeutig erkennbar.") from None
-    return {"series_key": key, "series_name": series_name or f"Serie {series}",
+        raise ValueError("Could not tell the season number of this episode.") from None
+    return {"series_key": key, "series_name": series_name or f"Series {series}",
             "season_number": season, "title": title}
 
 
@@ -107,26 +107,26 @@ def scan_tubi(start_id, read_metadata, report, limit=100):
     for offset in range(limit):
         episode_id = start_id + offset
         url = f"https://tubitv.com/tv-shows/{episode_id}"
-        report(f"Prüfe Episoden-ID {episode_id} …")
+        report(f"Checking episode ID {episode_id} …")
         try:
             info = read_metadata(url, episode_id)
             if not info.get("series_key") or info.get("season_number") is None:
-                raise ValueError("Serien-/Staffelangaben fehlen.")
+                raise ValueError("Series/season details missing.")
         except Exception as exc:
             if not result:
                 raise
-            report(f"Suche bei {episode_id} gestoppt: {exc} Bereits bestätigte Links bleiben erhalten; Staffel möglicherweise unvollständig.")
+            report(f"Search stopped at {episode_id}: {exc} Links already confirmed are kept; the season may be incomplete.")
             return result
         group = info["series_key"], info["season_number"]
         if expected is None:
             expected = group
-            report(f"Erkannt: {info.get('series_name', group[0])}, Staffel {group[1]}.")
+            report(f"Found: {info.get('series_name', group[0])}, season {group[1]}.")
         elif group != expected:
-            report(f"Suche beendet: ID {episode_id} gehört zu einer anderen Serie oder Staffel.")
+            report(f"Search finished: ID {episode_id} belongs to another series or season.")
             return result
         result.append(url)
-        report(f"Gefunden: {url} – {info.get('title', '')}")
-    report(f"Suchlimit von {limit} Episoden erreicht; Liste möglicherweise unvollständig.")
+        report(f"Found: {url} – {info.get('title', '')}")
+    report(f"Search limit of {limit} episodes reached; the list may be incomplete.")
     return result
 
 
@@ -215,7 +215,7 @@ def discover(pattern, extract, fetch):
     if found:
         return found
     if not wildcard:
-        raise ValueError("Keine Serie/Playlist erkannt. Bitte einen Übersichts- oder Playlistlink eingeben.")
+        raise ValueError("No series/playlist found. Please enter an overview or playlist link.")
 
     parser = Links()
     parser.feed(fetch(seed))
@@ -237,9 +237,9 @@ def discover(pattern, extract, fetch):
         found = selected(rows)
         if found:
             return found
-    raise ValueError("Keine passenden Episoden gefunden. Bitte den Serien-/Staffel-/Playlistlink "
-                     "statt eines Episodenlinks verwenden. Die Seite muss ihre Episoden verlinken "
-                     "oder als Playlist bereitstellen." + (" Letzter Abruffehler: " + errors[-1] if errors else ""))
+    raise ValueError("No matching episodes found. Please use the series/season/playlist link "
+                     "instead of an episode link. The page must link its episodes "
+                     "or offer them as a playlist." + (" Last loading error: " + errors[-1] if errors else ""))
 
 
 def main():

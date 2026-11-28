@@ -1,9 +1,11 @@
 /* ICEWOLF-GETEM-BEGIN
- * Icewolf "GetemTab" test fork:
+ * Icewolf Getem Edition:
  *  - Main menu > Getem opens Getem inside an Icewolf tab (Shift+click: update components)
  *  - Toolbar button next to uBlock Origin: one click sends the current page to Getem
- *  - One-time restore of the Downloads / "Forget" toolbar buttons
+ *  - One-time restore of the Downloads toolbar button
  * Getem runs as a local server on 127.0.0.1 with a random per-start key (see getem\server.py).
+ * The key stays in this script: the Getem tab is opened with a one-time code instead, so the key
+ * never appears in the address bar or the history. Page addresses are not written to the log.
  */
 try {
   (function () {
@@ -73,7 +75,8 @@ try {
       const f = getemDir(); f.append(".cache"); f.append("server.json");
       try {
         const info = await win.IOUtils.readJSON(f.path);
-        if (info && Number.isInteger(info.port) && typeof info.token === "string" && info.token.length >= 20) return info;
+        if (info && Number.isInteger(info.port) && info.port >= 1024 && info.port <= 65535 &&
+            typeof info.token === "string" && /^[A-Za-z0-9_-]{20,200}$/.test(info.token)) return info;
       } catch (e) { }
       return null;
     }
@@ -126,7 +129,7 @@ try {
               }
             }
           }
-          throw new Error("Getem did not start within 15 minutes. Is Python 3.10+ installed? Check the installation window.");
+          throw new Error("Getem did not start within 15 minutes. Is Python 3.11+ installed? Check the installation window.");
         })().finally(() => { starting = null; });
       }
       return starting;
@@ -144,16 +147,29 @@ try {
       return null;
     }
 
-    function openTab(win, info) {
+    // Opens (or shows) the Getem tab. The tab gets a one-time code, never the key itself.
+    async function openTab(win, info) {
       const base = "http://127.0.0.1:" + info.port + "/";
       for (const tab of win.gBrowser.tabs) {
         if (tab.linkedBrowser.currentURI.spec.indexOf(base) === 0) { win.gBrowser.selectedTab = tab; return; }
       }
-      win.gBrowser.selectedTab = win.gBrowser.addTrustedTab(base + "?t=" + encodeURIComponent(info.token));
+      const r = await win.fetch(base + "session", {
+        method: "POST", cache: "no-store",
+        headers: { "Content-Type": "application/json", "X-Getem-Token": info.token },
+        body: "[]"
+      });
+      const res = r.ok ? await r.json() : {};
+      if (!res || typeof res.code !== "string" || !/^[A-Za-z0-9_-]{16,100}$/.test(res.code))
+        throw new Error("Getem did not accept the request to open its tab (HTTP " + r.status + ").");
+      win.gBrowser.selectedTab = win.gBrowser.addTrustedTab(base + "?c=" + res.code);
+    }
+    // Only the site of a page goes into the log (no path, no query: those can hold private data).
+    function siteOf(uri) {
+      try { return uri.scheme + "://" + uri.host; } catch (e) { return "(unknown)"; }
     }
 
     async function openGetem(win) {
-      try { openTab(win, await ensureServer(win)); }
+      try { await openTab(win, await ensureServer(win)); }
       catch (e) { log("ERROR " + e.message); showError(win, "Getem could not be opened:\n\n" + e.message); }
     }
 
@@ -181,7 +197,7 @@ try {
         flash(button, "busy", "Starting Getem…");
         try {
           const info = await ensureServer(win, () => flash(button, "busy", "Starting Getem… (first start installs its components)"));
-          openTab(win, info);
+          await openTab(win, info);
           flash(button, "ok", "Getem is open");
         } catch (e) {
           log("ERROR " + e.message);
@@ -201,18 +217,18 @@ try {
           body: JSON.stringify([uri.spec])
         });
         const res = await r.json();
-        log("add_links " + uri.spec + " -> HTTP " + r.status + " " + JSON.stringify(res));
+        log("add_links " + siteOf(uri) + " -> HTTP " + r.status + (res && res.error ? " (rejected)" : "") +
+            (res && res.failures && res.failures.length ? " (no video)" : ""));
         if (!r.ok || res.error) throw new Error(res.error || ("error " + r.status));
         if (res.failures && res.failures.length) {
           // Getem is running but found no video on this page: show Getem anyway (e.g. to search).
-          log("no video on this page: " + res.failures[0].error);
           flash(button, "error", "No video found on this page - Getem is open for searching.");
-          if (!findGetemTab(info)) openTab(win, info);
+          if (!findGetemTab(info)) await openTab(win, info);
           return;
         }
         flash(button, "ok", "Added to the Getem queue ✓");
         // Getem not open yet? Then open it in a tab (with the link already in the queue).
-        if (!findGetemTab(info)) openTab(win, info);
+        if (!findGetemTab(info)) await openTab(win, info);
       } catch (e) {
         log("ERROR " + e.message);
         flash(button, "error", "Getem: " + e.message);

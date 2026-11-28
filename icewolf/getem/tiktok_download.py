@@ -20,8 +20,8 @@ class TikTokIE(BaseTikTokIE):
             formats.append(fmt)
         if not any(f.get("vcodec") != "none" for f in formats):
             raise ExtractorError(
-                "TikTok liefert keine Videofassung ohne Wasserzeichen. "
-                "Bitte später erneut versuchen.", expected=True)
+                "TikTok offers no video version without a watermark. "
+                "Please try again later.", expected=True)
         info["formats"] = formats
         return info
 

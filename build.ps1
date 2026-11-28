@@ -26,7 +26,7 @@ $ProgressPreference    = 'SilentlyContinue'
 $Root  = $PSScriptRoot
 $Build = Join-Path $Root 'build'
 $Dist  = Join-Path $Root 'dist'
-$ExpectedSigner = 'Scheibling Consulting AB'
+$ExpectedSigner = 'OSSign (Scheibling Consulting AB)'   # exact O=/CN= of LibreWolf's certificate
 $ReleaseApi     = 'https://librewolf.dev/api/v1/repos/librewolf/bsys6/releases/latest'
 $DownloadBase   = 'https://dl.librewolf.net/librewolf/'
 
@@ -97,24 +97,32 @@ $exe = Get-ChildItem -LiteralPath $check -Recurse -Filter 'librewolf.exe' | Sele
 if (-not $exe) { Fail 'librewolf.exe not found in the LibreWolf package.' }
 $pkg = $exe.Directory.FullName
 
-$bad = @(); $unsigned = @()
+# Same rules as Authenticode.VerifyPackage in setup\IcewolfSetup.cs (installer + updater):
+#  - every .exe/.dll must be validly signed by LibreWolf's publisher (exact O=/CN= match),
+#  - Microsoft's runtime files (C/C++, Windows App SDK) may be signed by Microsoft instead,
+#  - only the names in $UnsignedAllowed may be unsigned (keep in sync with UnsignedAllowed in the C# file).
+# The checksum file comes from the same server as the package, so the signatures are the real protection.
+$UnsignedAllowed = @()
+function Test-Subject([string]$subject, [string]$org) {
+    $e = [regex]::Escape($org)
+    return $subject -match "(^|,\s*)(O|CN)=(`"$e`"|$e)\s*(,|$)"
+}
+# Microsoft's C/C++ runtime and Windows App SDK runtime (same list as MicrosoftRuntimePattern in the C# file)
+$msRuntime = '^(msvcp\d+(_\w+)?|vcruntime\d+(_\d+)?|ucrtbase|concrt\d+|vccorlib\d+|api-ms-win-[a-z0-9-]+|microsoft\.[a-z0-9.]+|coremessagingxp|marshal)\.dll$'
+$bad = @()
 Get-ChildItem -LiteralPath $pkg -Recurse -File | Where-Object { $_.Extension -in '.exe', '.dll' } | ForEach-Object {
     $s = Get-AuthenticodeSignature -LiteralPath $_.FullName
-    $isMain = ($_.Extension -eq '.exe') -or ($_.Name -eq 'xul.dll')
     if ($s.Status -eq [System.Management.Automation.SignatureStatus]::Valid) {
-        if ($isMain -and $s.SignerCertificate.Subject -notlike "*$ExpectedSigner*") {
-            $bad += "$($_.Name): signed by '$($s.SignerCertificate.Subject)'"
-        }
-    } elseif ($s.Status -eq [System.Management.Automation.SignatureStatus]::NotSigned -and -not $isMain) {
-        $unsigned += $_.Name
+        $subj = $s.SignerCertificate.Subject
+        $ok = (Test-Subject $subj $ExpectedSigner) -or (($_.Name -match $msRuntime) -and (Test-Subject $subj 'Microsoft Corporation'))
+        if (-not $ok) { $bad += "$($_.Name): signed by '$subj'" }
+    } elseif ($s.Status -eq [System.Management.Automation.SignatureStatus]::NotSigned -and ($UnsignedAllowed -contains $_.Name.ToLowerInvariant())) {
+        Write-Host "[build] Note: $($_.Name) is unsigned (on the allowed list)" -ForegroundColor Yellow
     } else {
         $bad += "$($_.Name): $($s.Status)"
     }
 }
 if ($bad.Count -gt 0) { Fail ("Signature check failed:`n        " + ($bad -join "`n        ")) }
-if ($unsigned.Count -gt 0) {
-    Write-Host "[build] Note: unsigned helper libraries (protected by the SHA256 checksum): $($unsigned -join ', ')" -ForegroundColor Yellow
-}
 $subject = (Get-AuthenticodeSignature -LiteralPath (Join-Path $pkg 'librewolf.exe')).SignerCertificate.Subject
 Step "Main program files signed by: $subject"
 
@@ -126,6 +134,24 @@ foreach ($f in 'policies.json', 'user.js', 'userChrome.css', 'userContent.css', 
 Copy-Item -LiteralPath (Join-Path $Root 'setup\assets\icewolf.ico') -Destination (Join-Path $Build 'icewolf.ico')
 Copy-Item -LiteralPath (Join-Path $Root 'setup\assets\side.png')    -Destination (Join-Path $Build 'side.png')
 $null = Get-Content -LiteralPath (Join-Path $Build 'policies.json') -Raw | ConvertFrom-Json   # must be valid JSON
+
+# Zip a folder with "/" as path separator. ZipFile.CreateFromDirectory in Windows PowerShell 5
+# (.NET Framework) writes "\", which other unzip tools treat as part of the file name.
+function New-ZipFromFolder([string]$src, [string]$zipPath) {
+    if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+    $base = (Resolve-Path -LiteralPath $src).Path.TrimEnd('\') + '\'
+    $zip = [IO.Compression.ZipFile]::Open($zipPath, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        Get-ChildItem -LiteralPath $src -Recurse -Force | ForEach-Object {
+            $rel = $_.FullName.Substring($base.Length).Replace('\', '/')
+            if ($_.PSIsContainer) {
+                if (-not (Get-ChildItem -LiteralPath $_.FullName -Force | Select-Object -First 1)) { [void]$zip.CreateEntry($rel + '/') }
+            } else {
+                [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $rel, [IO.Compression.CompressionLevel]::Optimal)
+            }
+        }
+    } finally { $zip.Dispose() }
+}
 
 # ------------------------------------------------------------ Getem (only in the "with Getem" project)
 # Project Icewolf (main repository) contains no Getem files and builds the two plain versions.
@@ -142,8 +168,7 @@ if (Test-Path -LiteralPath $getemSrc) { Remove-Item -LiteralPath $getemSrc -Recu
 Copy-Item -LiteralPath (Join-Path $Root 'icewolf\getem') -Destination $getemSrc -Recurse
 Copy-Item -Path (Join-Path $Root 'icewolf\getem-tab\*') -Destination $getemSrc -Force
 $getemZip = Join-Path $Build 'getem.zip'
-if (Test-Path -LiteralPath $getemZip) { Remove-Item -LiteralPath $getemZip -Force }
-[IO.Compression.ZipFile]::CreateFromDirectory($getemSrc, $getemZip, [IO.Compression.CompressionLevel]::Optimal, $false)
+New-ZipFromFolder $getemSrc $getemZip
 } else {
     Step 'No Getem files in this project - building Icewolf without Getem.'
 }
@@ -179,7 +204,8 @@ try {
         '/resource:setup\assets\logo512.png,logo512.png',
         '/resource:setup\assets\logo.svg,logo.svg',
         '/resource:setup\assets\wordmark.svg,wordmark.svg',
-        '/resource:setup\icewolf-core.js,icewolf-core.js'
+        '/resource:setup\icewolf-core.js,icewolf-core.js',
+        '/resource:build\librewolf.overrides.cfg,librewolf.overrides.cfg'   # written into the engine config by every program
     )
     if ($WithGetem) {
         $base += @('/resource:setup\getem-button.js,getem-button.js', '/resource:setup\getem-tab.js,getem-tab.js')
@@ -199,14 +225,24 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "Compiling the Getem helper failed (exit code $LASTEXITCODE). See messages above." }
     }
 
+    # Installed version: Icewolf.exe in Program Files, started unelevated by the shortcuts. It sets up
+    # each user's profile (and Getem's program files) itself - the setup no longer writes user folders.
+    $layerRes = @(
+        '/resource:build\user.js,user.js',
+        '/resource:build\userChrome.css,userChrome.css',
+        '/resource:build\userContent.css,userContent.css'
+    )
+    $launcherArgs = $base + $layerRes + @('/win32manifest:setup\portable.manifest', '/define:LAUNCHER')
+    if ($WithGetem) { $launcherArgs += '/resource:build\getem.zip,getem.zip' }
+    Step 'Compiling launcher (installed version)...'
+    & $csc @launcherArgs '/out:build\Icewolf-Launcher.exe' @sources | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) { Fail "Compiling the launcher failed (exit code $LASTEXITCODE). See messages above." }
+
     $engineRes = @(
         '/resource:build\engine.zip,engine.zip',
         '/resource:build\policies.json,policies.json',
-        '/resource:build\user.js,user.js',
-        '/resource:build\userChrome.css,userChrome.css',
-        '/resource:build\userContent.css,userContent.css',
-        '/resource:build\librewolf.overrides.cfg,librewolf.overrides.cfg',
-        '/resource:build\Icewolf-Uninstall.exe,Uninstaller.exe'
+        '/resource:build\Icewolf-Uninstall.exe,Uninstaller.exe',
+        '/resource:build\Icewolf-Launcher.exe,Launcher.exe'
     )
     $getemRes = @('/resource:build\getem.zip,getem.zip', '/resource:build\GetemHost.exe,GetemHost.exe')
 
@@ -239,7 +275,8 @@ Copy-Item -LiteralPath $pkg -Destination (Join-Path $pd 'engine') -Recurse
 Copy-Item -LiteralPath (Join-Path $Build 'Icewolf.exe')            -Destination $pd
 Copy-Item -LiteralPath (Join-Path $Build 'policies.json')          -Destination (Join-Path $pd 'icewolf-policies.json')
 Copy-Item -LiteralPath (Join-Path $Build 'user.js')                -Destination $prof
-Copy-Item -LiteralPath (Join-Path $Build 'librewolf.overrides.cfg') -Destination $prof
+# (Icewolf's locked settings go into the engine's librewolf.cfg via /brand-engine - a copy in the
+#  profile folder was never read by the engine.)
 Copy-Item -LiteralPath (Join-Path $Build 'userChrome.css')         -Destination (Join-Path $prof 'chrome')
 Copy-Item -LiteralPath (Join-Path $Build 'userContent.css')        -Destination (Join-Path $prof 'chrome')
 Copy-Item -LiteralPath (Join-Path $Build 'icewolf.ico')            -Destination (Join-Path $icons 'main-window.ico')
@@ -258,8 +295,7 @@ if (Test-Path -LiteralPath $brandLog) {
 
 function New-PortableZip([string]$name) {
     $zipPath = Join-Path $Dist $name
-    if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
-    [IO.Compression.ZipFile]::CreateFromDirectory($pRoot, $zipPath, [IO.Compression.CompressionLevel]::Optimal, $false)
+    New-ZipFromFolder $pRoot $zipPath
     $h = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
     Set-Content -LiteralPath "$zipPath.sha256" -Value "$h  $name" -Encoding ASCII
     return $zipPath

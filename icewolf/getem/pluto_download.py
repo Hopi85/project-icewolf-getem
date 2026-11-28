@@ -20,16 +20,16 @@ class GetemPlutoIE(InfoExtractor):
             episode = next((e for s in data.get("seasons", []) for e in s.get("episodes", [])
                             if requested in (e.get("_id"), e.get("id"), e.get("slug"))), None)
             if episode is None:
-                raise ValueError("Pluto TV bietet diese Folge in der aktuellen Region nicht an.")
+                raise ValueError("Pluto TV does not offer this episode in the current region.")
             eid = client.identifier(episode.get("_id") or episode.get("id"))
             stream = client.stream(eid)
         except Exception:
-            raise ExtractorError("Pluto-TV-Folge nicht abrufbar. Verbindung, Region und Verfügbarkeit prüfen.", expected=True) from None
+            raise ExtractorError("Pluto TV episode not available. Check connection, region and availability.", expected=True) from None
         formats, subtitles = self._extract_m3u8_formats_and_subtitles(
             stream, eid, "mp4", headers=client.headers, fatal=False)
         formats = [f for f in formats if not f.get("has_drm")]
         if not formats:
-            raise ExtractorError("Pluto TV liefert keinen unterstützten ungeschützten Stream. Region oder DRM prüfen.", expected=True)
+            raise ExtractorError("Pluto TV offers no supported unprotected stream. Check region or DRM.", expected=True)
         return {"id": eid, "title": episode.get("name") or eid, "series": data.get("name"),
                 "season_number": episode.get("season"), "episode_number": episode.get("number"),
                 "formats": formats, "subtitles": subtitles}

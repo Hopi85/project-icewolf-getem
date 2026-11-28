@@ -128,9 +128,12 @@ try {
       Svc.prefs.setBoolPref(done, true);
       slog("default engine: " + (search.defaultEngine && search.defaultEngine.name));
     }
-    // ---- Only ONE "delete browsing data" button: the browser's own (white) one stays.
-    // Earlier Icewolf versions added a second, colored flame ("panic-button") - it is removed once.
-    // If you add it again yourself (Customize toolbar), it stays. Logged to icewolf-search-log.txt.
+    // ---- Only ONE "delete browsing data" button on the toolbar.
+    // "panic-button" is the engine's built-in "Forget" widget; Icewolf's userChrome.css gives it the
+    // colored flame icon. Earlier Icewolf versions placed it next to the other (white) delete-data
+    // button, so it is removed from the toolbar once. If you add it again yourself (Customize
+    // toolbar), it stays. The toolbar's widget ids are logged 5 s after start (icewolf-search-log.txt),
+    // which shows the id of the remaining white button.
     function removeExtraFlame(win, final) {
       try {
         let CUI = null;

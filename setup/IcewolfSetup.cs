@@ -47,6 +47,8 @@ namespace Icewolf.Setup
         {
 #if PORTABLE
             return Portable.Run(args);
+#elif LAUNCHER
+            return UserLauncher.Run(args);
 #else
             // Silent background updater (started by the scheduled task, runs as SYSTEM)
             string exeName = Path.GetFileNameWithoutExtension(Assembly.GetExecutingAssembly().Location);
@@ -71,8 +73,7 @@ namespace Icewolf.Setup
                 {
                     if (!Environment.Is64BitOperatingSystem || Environment.OSVersion.Version.Major < 10)
                     {
-                        MessageBox.Show(L.T("Icewolf requires 64-bit Windows 10 or Windows 11.",
-                                            "Icewolf benötigt 64-Bit Windows 10 oder Windows 11."),
+                        MessageBox.Show("Icewolf requires 64-bit Windows 10 or Windows 11.",
                                         "Icewolf", MessageBoxButton.OK, MessageBoxImage.Error);
                         return 1;
                     }
@@ -83,7 +84,7 @@ namespace Icewolf.Setup
                 {
                     if (!created)
                     {
-                        MessageBox.Show(L.T("Icewolf Setup is already running.", "Icewolf Setup läuft bereits."),
+                        MessageBox.Show("Icewolf Setup is already running.",
                                         "Icewolf", MessageBoxButton.OK, MessageBoxImage.Information);
                         return 1;
                     }
@@ -108,13 +109,6 @@ namespace Icewolf.Setup
                 if (string.Equals(a, name, StringComparison.OrdinalIgnoreCase)) return true;
             return false;
         }
-    }
-
-    // ------------------------------------------------------------------ language
-    internal static class L
-    {
-        public static readonly bool De = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "de";
-        public static string T(string en, string de) { return De ? de : en; }
     }
 
     internal sealed class SetupException : Exception
@@ -189,11 +183,27 @@ namespace Icewolf.Setup
         public static string UpdaterExe     { get { return Path.Combine(InstallDir, "Icewolf-Updater.exe"); } }
         public static string PolicyAddons   { get { return Path.Combine(InstallDir, "icewolf-policies.json"); } }
         public static string UpdateLog      { get { return Path.Combine(InstallDir, "update-log.txt"); } }
+        public static string UpdateLock     { get { return Path.Combine(InstallDir, "updater.lock"); } }
+        /// <summary>Unelevated per-user launcher (Start menu / desktop / taskbar shortcuts point here).</summary>
+        public static string LauncherExe    { get { return Path.Combine(InstallDir, "Icewolf.exe"); } }
+
+        // Shortcuts for every user of the PC (the folders are writable by administrators only)
+        public static string CommonStartMenuLnk
+        {
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "Icewolf.lnk"); }
+        }
+        public static string CommonDesktopLnk
+        {
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "Icewolf.lnk"); }
+        }
+        public static string CommonGetemLnk
+        {
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "Getem.lnk"); }
+        }
 
         // Getem integration
-        public const string GetemHostName = "icewolf_getem";
-        public const string GetemExtensionId = "getem@icewolf.local";
-        public const string NativeHostsKey = @"SOFTWARE\Mozilla\NativeMessagingHosts\" + GetemHostName;
+        // Native messaging registration of Icewolf versions before 1.3 - only removed, never written.
+        public const string LegacyNativeHostsKey = @"SOFTWARE\Mozilla\NativeMessagingHosts\icewolf_getem";
         public static string GetemDir
         {
             get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Icewolf", "Getem"); }
@@ -209,6 +219,8 @@ namespace Icewolf.Setup
             get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Icewolf"); }
         }
         public static string ProfileDir     { get { return Path.Combine(ProfileRoot, "Profile"); } }
+        /// <summary>LibreWolf's user-writable overrides file. Icewolf versions up to 1.6 wrote it; it is now
+        /// only cleaned up (Icewolf's locked settings live in the engine's own config file instead).</summary>
         public static string OverridesFile
         {
             get
@@ -260,8 +272,11 @@ namespace Icewolf.Setup
     // ------------------------------------------------------------------ signature checks
     internal static class Authenticode
     {
-        /// <summary>Organisation in the code-signing certificate of LibreWolf's Windows builds (via OSSign).</summary>
-        public const string LibreWolfSigner = "Scheibling Consulting AB";
+        /// <summary>
+        /// Exact organisation (O=) / common name (CN=) in the code-signing certificate of LibreWolf's Windows
+        /// builds, as seen on LibreWolf 161.0-1: "CN=OSSign (Scheibling Consulting AB), O=OSSign (Scheibling Consulting AB)".
+        /// </summary>
+        public const string LibreWolfSigner = "OSSign (Scheibling Consulting AB)";
 
         private static readonly Guid GenericVerifyV2 = new Guid("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
 
@@ -369,10 +384,42 @@ namespace Icewolf.Setup
         }
 
         /// <summary>
+        /// True if the certificate subject names exactly this organisation (O=...) or common name (CN=...).
+        /// A plain "contains" test would also accept e.g. "O=Not Scheibling Consulting AB Ltd".
+        /// </summary>
+        public static bool SubjectIs(string subject, string organisation)
+        {
+            if (string.IsNullOrEmpty(subject)) return false;
+            string esc = Regex.Escape(organisation);
+            return Regex.IsMatch(subject, @"(^|,\s*)(O|CN)=(""" + esc + @"""|" + esc + @")\s*(,|$)", RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>
+        /// Microsoft runtime files that LibreWolf ships with Microsoft's own signature: the Visual C++ /
+        /// Universal C runtime and the Windows App SDK runtime (Microsoft.*.dll, CoreMessagingXP.dll, marshal.dll).
+        /// </summary>
+        public static bool IsMicrosoftRuntimeName(string name)
+        {
+            return Regex.IsMatch(name, MicrosoftRuntimePattern, RegexOptions.IgnoreCase);
+        }
+        public const string MicrosoftRuntimePattern =
+            @"^(msvcp\d+(_\w+)?|vcruntime\d+(_\d+)?|ucrtbase|concrt\d+|vccorlib\d+|api-ms-win-[a-z0-9-]+|microsoft\.[a-z0-9.]+|coremessagingxp|marshal)\.dll$";
+
+        /// <summary>
+        /// Program libraries that LibreWolf ships without a signature. Only these exact names may be
+        /// unsigned; any other unsigned .exe/.dll stops the build/installation/update. Keep this list in
+        /// sync with $UnsignedAllowed in build.ps1 (the build log lists the files if this ever changes).
+        /// </summary>
+        public static readonly string[] UnsignedAllowed = new string[] { };
+
+        /// <summary>
         /// Verifies a LibreWolf package folder. Throws on failure:
-        ///  - librewolf.exe, xul.dll and every .exe must be signed by LibreWolf's publisher;
-        ///  - no file may have a broken (tampered) signature;
-        ///  - unsigned helper libraries are allowed (the package's SHA256 is verified separately).
+        ///  - every .exe and .dll must carry a valid signature from LibreWolf's publisher;
+        ///  - exceptions: Microsoft's C/C++ runtime files signed by Microsoft, and the few libraries in
+        ///    UnsignedAllowed that LibreWolf ships unsigned;
+        ///  - no file may have a broken (tampered) signature.
+        /// The checksum file comes from the same server as the package, so these signature checks are
+        /// what protects against a tampered download.
         /// </summary>
         public static void VerifyPackage(string dir)
         {
@@ -385,21 +432,20 @@ namespace Icewolf.Setup
                 string ext = Path.GetExtension(f).ToLowerInvariant();
                 if (ext != ".exe" && ext != ".dll") continue;
                 string name = Path.GetFileName(f);
-                bool isMain = ext == ".exe" || string.Equals(name, "xul.dll", StringComparison.OrdinalIgnoreCase);
 
                 string why;
                 bool unsigned;
                 if (IsValidlySigned(f, out why, out unsigned))
                 {
-                    if (isMain && Signer(f).IndexOf(LibreWolfSigner, StringComparison.OrdinalIgnoreCase) < 0)
-                        throw new SetupException(L.T("Security check failed: ", "Sicherheitsprüfung fehlgeschlagen: ")
-                                                 + name + " is not signed by LibreWolf's publisher (" + Signer(f) + ").");
+                    string subject = Signer(f);
+                    if (SubjectIs(subject, LibreWolfSigner)) continue;
+                    if (IsMicrosoftRuntimeName(name) && SubjectIs(subject, "Microsoft Corporation")) continue;
+                    throw new SetupException("Security check failed: "
+                                             + name + " is not signed by LibreWolf's publisher (" + subject + ").");
                 }
-                else if (!(unsigned && !isMain))
-                {
-                    throw new SetupException(L.T("Security check failed for ", "Sicherheitsprüfung fehlgeschlagen für ")
-                                             + name + ": " + why);
-                }
+                if (unsigned && Array.IndexOf(UnsignedAllowed, name.ToLowerInvariant()) >= 0) continue;
+                throw new SetupException("Security check failed for "
+                                         + name + ": " + why);
             }
         }
     }
@@ -433,63 +479,53 @@ namespace Icewolf.Setup
         public static void Install(bool desktopShortcut, Action<double, string> progress)
         {
             if (BrowserRunning())
-                throw new SetupException(L.T("Icewolf is running. Please close it and try again.",
-                                             "Icewolf läuft gerade. Bitte schließen und erneut versuchen."));
+                throw new SetupException("Icewolf is running. Please close it and try again.");
 
             string tmp = Paths.CreatePrivateTempDir();
             try
             {
                 // 1. unpack the embedded browser engine
-                progress(0.04, L.T("Unpacking browser engine...", "Browser-Engine wird entpackt..."));
+                progress(0.04, "Unpacking browser engine...");
                 string zip = Path.Combine(tmp, "engine.zip");
                 Res.Extract("engine.zip", zip);
                 string unpacked = Path.Combine(tmp, "x");
                 SafeExtract(zip, unpacked, delegate(double f)
                 {
-                    progress(0.06 + 0.40 * f, L.T("Unpacking browser engine...", "Browser-Engine wird entpackt..."));
+                    progress(0.06 + 0.40 * f, "Unpacking browser engine...");
                 });
                 File.Delete(zip);
                 string package = FindPackageRoot(unpacked);
 
                 // 2. verify digital signatures of every program file on this PC
-                progress(0.48, L.T("Verifying digital signatures...", "Digitale Signaturen werden geprüft..."));
+                progress(0.48, "Verifying digital signatures...");
                 Authenticode.VerifyPackage(package);
 
                 // 3. put the engine in place
-                progress(0.62, L.T("Installing browser engine...", "Browser-Engine wird installiert..."));
+                progress(0.62, "Installing browser engine...");
                 Directory.CreateDirectory(Paths.InstallDir);
+                // Icewolf's policies are merged into the verified package BEFORE it replaces the
+                // installed engine, so a policy problem can never leave an engine without them.
+                Res.Extract("policies.json", Paths.PolicyAddons);
+                MergePolicies(package, Paths.PolicyAddons);
                 ReplaceEngine(package);
                 Rebrand.Apply(Paths.EngineDir);
 
                 // 4. Icewolf layer in Program Files
-                progress(0.78, L.T("Applying privacy and security settings...", "Datenschutz- und Sicherheitseinstellungen werden angewendet..."));
-                Res.Extract("policies.json", Paths.PolicyAddons);
-                MergePolicies();
+                progress(0.78, "Applying privacy and security settings...");
                 Res.Extract("icewolf.ico", Paths.IconFile);
                 Res.Extract("Uninstaller.exe", Paths.Uninstaller);
                 Res.Extract("Uninstaller.exe", Paths.UpdaterExe);
-
-                // 5. profile + locked settings
-                string chrome = Path.Combine(Paths.ProfileDir, "chrome");
-                string icons = Path.Combine(chrome, "icons", "default");
-                Directory.CreateDirectory(icons);
-                Res.Extract("user.js", Path.Combine(Paths.ProfileDir, "user.js"));
-                Res.Extract("userChrome.css", Path.Combine(chrome, "userChrome.css"));
-                Res.Extract("userContent.css", Path.Combine(chrome, "userContent.css"));
-                Res.Extract("icewolf.ico", Path.Combine(icons, "main-window.ico"));
-                Res.Extract("icewolf.ico", Path.Combine(icons, "default.ico"));
-                foreach (string f in new string[] { "logins.json", "logins-backup.json", "autofill-profiles.json",
-                                                    "formhistory.sqlite", "formhistory.sqlite-wal", "formhistory.sqlite-shm" })
-                    TryDeleteFile(Path.Combine(Paths.ProfileDir, f));
-                WriteOverrides();
-                DeleteDir(Path.Combine(Paths.ProfileDir, "startupCache"));
+                // 5. The per-user part (profile, theme, Getem's program files) is NOT done here: this
+                //    installer runs as administrator, and writing into a user's folders with admin rights
+                //    can be redirected (junctions) and lands in the wrong account when another account
+                //    approves the UAC prompt. Icewolf.exe (unelevated) does it for each user on start.
+                Res.Extract("Launcher.exe", Paths.LauncherExe);
 
                 Getem.UnregisterHost(RegistryHive.LocalMachine);     // from an earlier Icewolf version
                 if (Getem.Bundled)
                 {
-                    // Getem: program files for the user, helper + menu entry
-                    progress(0.84, L.T("Installing Getem...", "Getem wird installiert..."));
-                    Getem.InstallFiles(tmp, Paths.GetemDir, true);
+                    // Getem: helper + browser button. Its program files are copied for each user by Icewolf.exe.
+                    progress(0.84, "Installing Getem...");
                     Directory.CreateDirectory(Paths.GetemHostDir);
                     Res.Extract("GetemHost.exe", Path.Combine(Paths.GetemHostDir, "GetemHost.exe"));
                     Rebrand.InstallGetemButton(Paths.EngineDir);
@@ -499,21 +535,27 @@ namespace Icewolf.Setup
                     // Version without Getem: remove the helper of an earlier "with Getem" install
                     // (Getem data in %LOCALAPPDATA%\Icewolf\Getem is kept)
                     DeleteDir(Paths.GetemHostDir);
-                    TryDeleteFile(Paths.GetemLnk);
+                    TryDeleteFile(Paths.CommonGetemLnk);
                     Rebrand.InstallScripts(Paths.EngineDir);          // core script only
                 }
 
-                // 6. shortcuts with the Icewolf taskbar identity
-                progress(0.88, L.T("Creating shortcuts...", "Verknüpfungen werden erstellt..."));
+                // 6. shortcuts for all users, with the Icewolf taskbar identity
+                progress(0.88, "Creating shortcuts...");
                 SetTaskbarId();
-                ShellLink.Create(Paths.StartMenuLnk);
-                if (desktopShortcut) ShellLink.Create(Paths.DesktopLnk);
+                // per-user shortcuts of Icewolf 1.6 and older (pointed at one user's profile)
+                TryDeleteFile(Paths.StartMenuLnk);
+                TryDeleteFile(Paths.DesktopLnk);
+                TryDeleteFile(Paths.GetemLnk);
+                ShellLink.Create(Paths.CommonStartMenuLnk);
+                if (desktopShortcut) ShellLink.Create(Paths.CommonDesktopLnk);
+                else TryDeleteFile(Paths.CommonDesktopLnk);
                 if (Getem.Bundled)
-                    ShellLink.CreateSimple(Paths.GetemLnk, Path.Combine(Paths.GetemHostDir, "GetemHost.exe"), "/start",
-                                           Paths.GetemDir, "Getem - video search & download");
+                    ShellLink.CreateSimple(Paths.CommonGetemLnk, Paths.LauncherExe, "/getem",
+                                           Paths.InstallDir, "Getem - video search & download",
+                                           Path.Combine(Paths.GetemHostDir, "GetemHost.exe"));
 
                 // 7. Apps entry + automatic updates
-                progress(0.94, L.T("Enabling automatic security updates...", "Automatische Sicherheitsupdates werden aktiviert..."));
+                progress(0.94, "Enabling automatic security updates...");
                 using (RegistryKey hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
                 using (RegistryKey k = hklm.CreateSubKey(Paths.UninstallKey))
                 {
@@ -530,7 +572,7 @@ namespace Icewolf.Setup
                 }
                 CreateUpdateTask(tmp);
 
-                progress(1.0, L.T("Done", "Fertig"));
+                progress(1.0, "Done");
             }
             finally
             {
@@ -542,18 +584,20 @@ namespace Icewolf.Setup
         public static void Uninstall(bool removeProfile, Action<double, string> progress)
         {
             if (BrowserRunning())
-                throw new SetupException(L.T("Icewolf is running. Please close it and try again.",
-                                             "Icewolf läuft gerade. Bitte schließen und erneut versuchen."));
+                throw new SetupException("Icewolf is running. Please close it and try again.");
 
-            progress(0.10, L.T("Removing automatic updates...", "Automatische Updates werden entfernt..."));
+            progress(0.10, "Removing automatic updates...");
             RunHidden(SchTasks(), "/Delete /TN \"" + Paths.UpdateTaskName + "\" /F");
 
-            progress(0.30, L.T("Removing shortcuts...", "Verknüpfungen werden entfernt..."));
-            TryDeleteFile(Paths.StartMenuLnk);
+            progress(0.30, "Removing shortcuts...");
+            TryDeleteFile(Paths.CommonStartMenuLnk);
+            TryDeleteFile(Paths.CommonDesktopLnk);
+            TryDeleteFile(Paths.CommonGetemLnk);
+            TryDeleteFile(Paths.StartMenuLnk);       // per-user shortcuts of Icewolf 1.6 and older
             TryDeleteFile(Paths.DesktopLnk);
             RemoveTaskbarId();
 
-            progress(0.50, L.T("Removing files...", "Dateien werden entfernt..."));
+            progress(0.50, "Removing files...");
             string dir = Paths.InstallDir;
             if (string.Equals(Path.GetFileName(dir), "Icewolf", StringComparison.OrdinalIgnoreCase) && dir.Length > 10)
                 DeleteDir(dir);
@@ -561,20 +605,22 @@ namespace Icewolf.Setup
             using (RegistryKey hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
                 hklm.DeleteSubKeyTree(Paths.UninstallKey, false);
 
-            RemoveOverrides();
+            RemoveLegacyOverrides();
             TryDeleteFile(Paths.GetemLnk);
             Getem.UnregisterHost(RegistryHive.LocalMachine);
 
             if (removeProfile)
             {
-                progress(0.85, L.T("Removing profile...", "Profil wird entfernt..."));
+                // The profile of the account that runs the uninstaller. DeleteDir never follows
+                // junctions/symbolic links, so a redirected folder cannot make it delete other files.
+                progress(0.85, "Removing profile...");
                 string prof = Paths.ProfileRoot;
                 if (string.Equals(Path.GetFileName(prof), "Icewolf", StringComparison.OrdinalIgnoreCase))
                     DeleteDir(prof);
                 // Getem program + its Python environment (your downloads in "Downloads\Getem" are kept)
                 DeleteDir(Paths.GetemDir);
             }
-            progress(1.0, L.T("Done", "Fertig"));
+            progress(1.0, "Done");
         }
 
         // ---------------------------------------------------------- engine files
@@ -659,7 +705,15 @@ namespace Icewolf.Setup
             Dictionary<string, object> doc = null;
             if (File.Exists(target))
             {
-                try { doc = ser.Deserialize<Dictionary<string, object>>(File.ReadAllText(target)); } catch { doc = null; }
+                // Never silently drop LibreWolf's own policies: if its file cannot be read, stop here and
+                // leave it untouched (the caller logs/shows the error) instead of replacing it.
+                try { doc = ser.Deserialize<Dictionary<string, object>>(File.ReadAllText(target)); }
+                catch (Exception ex)
+                {
+                    throw new SetupException("LibreWolf's policies.json could not be read - Icewolf's policies were not added (" +
+                                             ex.Message + ").");
+                }
+                if (doc == null) throw new SetupException("LibreWolf's policies.json is empty - Icewolf's policies were not added.");
             }
             if (doc == null) doc = new Dictionary<string, object>();
             Dictionary<string, object> policies = null;
@@ -732,35 +786,32 @@ namespace Icewolf.Setup
             return result;
         }
 
-        private static void WriteOverrides()
-        {
-            string file = Paths.OverridesFile;
-            Directory.CreateDirectory(Path.GetDirectoryName(file));
-            if (File.Exists(file))
-            {
-                string current = File.ReadAllText(file);
-                if (!current.StartsWith(Paths.OverridesMarker, StringComparison.Ordinal))
-                {
-                    string backup = file + ".before-icewolf";
-                    if (!File.Exists(backup)) File.Copy(file, backup);
-                }
-            }
-            File.WriteAllText(file, Res.Text("librewolf.overrides.cfg"), new UTF8Encoding(false));
-            // The portable engine build may read the override file from the profile folder instead
-            File.WriteAllText(Path.Combine(Paths.ProfileDir, "librewolf.overrides.cfg"), Res.Text("librewolf.overrides.cfg"), new UTF8Encoding(false));
-        }
-
-        private static void RemoveOverrides()
+        /// <summary>
+        /// Icewolf 1.6 and older wrote its settings to %USERPROFILE%\.librewolf\librewolf.overrides.cfg -
+        /// a file that a real LibreWolf on the same PC also reads. Removes Icewolf's file (only if it is
+        /// Icewolf's, recognised by its first line) and puts back the user's own file if one was saved.
+        /// Never follows a junction/symbolic link.
+        /// </summary>
+        public static void RemoveLegacyOverrides()
         {
             try
             {
                 string file = Paths.OverridesFile;
-                if (File.Exists(file) && File.ReadAllText(file).StartsWith(Paths.OverridesMarker, StringComparison.Ordinal))
+                string dir = Path.GetDirectoryName(file);
+                if (!Directory.Exists(dir) || IsReparsePoint(dir)) return;
+                if (File.Exists(file) && !IsReparsePoint(file) &&
+                    File.ReadAllText(file).StartsWith(Paths.OverridesMarker, StringComparison.Ordinal))
                     File.Delete(file);
                 string backup = file + ".before-icewolf";
-                if (File.Exists(backup) && !File.Exists(file)) File.Move(backup, file);
+                if (File.Exists(backup) && !IsReparsePoint(backup) && !File.Exists(file)) File.Move(backup, file);
             }
             catch { }
+        }
+
+        public static bool IsReparsePoint(string path)
+        {
+            try { return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0; }
+            catch { return false; }
         }
 
         // ---------------------------------------------------------- taskbar identity
@@ -771,15 +822,14 @@ namespace Icewolf.Setup
         /// </summary>
         public static void SetTaskbarId()
         {
+            // Machine-wide (HKLM), so it applies to every user. Older versions also wrote the
+            // installing account's HKCU; RemoveTaskbarId still cleans that up.
             foreach (string keyPath in TaskbarKeyPaths())
-                foreach (RegistryKey root in TaskbarRoots())
+                using (RegistryKey root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
+                using (RegistryKey k = root.CreateSubKey(keyPath))
                 {
-                    using (root)
-                    using (RegistryKey k = root.CreateSubKey(keyPath))
-                    {
-                        RemoveOurValues(k);
-                        k.SetValue(Paths.EngineDir, Paths.TaskbarId, RegistryValueKind.String);
-                    }
+                    RemoveOurValues(k);
+                    k.SetValue(Paths.EngineDir, Paths.TaskbarId, RegistryValueKind.String);
                 }
         }
 
@@ -886,9 +936,7 @@ namespace Icewolf.Setup
             File.WriteAllText(xmlFile, xml, Encoding.Unicode);
             int code = RunHidden(SchTasks(), "/Create /TN \"" + Paths.UpdateTaskName + "\" /XML \"" + xmlFile + "\" /F");
             if (code != 0)
-                throw new SetupException(string.Format(L.T(
-                    "Automatic updates could not be enabled (code {0}).",
-                    "Automatische Updates konnten nicht aktiviert werden (Code {0})."), code));
+                throw new SetupException(string.Format("Automatic updates could not be enabled (code {0}).", code));
         }
 
         // ---------------------------------------------------------- launch / self handling
@@ -897,9 +945,9 @@ namespace Icewolf.Setup
         {
             try
             {
-                if (!File.Exists(Paths.StartMenuLnk)) return;
+                if (!File.Exists(Paths.CommonStartMenuLnk)) return;
                 string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-                var psi = new ProcessStartInfo(explorer, "\"" + Paths.StartMenuLnk + "\"");
+                var psi = new ProcessStartInfo(explorer, "\"" + Paths.CommonStartMenuLnk + "\"");
                 psi.UseShellExecute = false;
                 Process.Start(psi).Dispose();
             }
@@ -932,6 +980,31 @@ namespace Icewolf.Setup
         }
 
         // ---------------------------------------------------------- helpers
+        /// <summary>
+        /// "-profile <dir>" plus the caller's arguments (e.g. a URL or file to open). Launcher switches
+        /// ("/...") and arguments containing quotes are dropped; every argument is quoted by the Windows
+        /// rules, so a trailing backslash can no longer swallow the closing quote and merge arguments.
+        /// </summary>
+        public static string BrowserCommandLine(string profile, string[] args)
+        {
+            var sb = new StringBuilder("-profile ").Append(QuoteArg(profile));
+            foreach (string a in args)
+            {
+                if (string.IsNullOrEmpty(a) || a.StartsWith("/", StringComparison.Ordinal)) continue;
+                if (a.IndexOf('"') >= 0) continue;
+                sb.Append(' ').Append(QuoteArg(a));
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Quotes one argument for CommandLineToArgvW (no embedded quotes expected).</summary>
+        public static string QuoteArg(string a)
+        {
+            int trailing = 0;
+            while (trailing < a.Length && a[a.Length - 1 - trailing] == '\\') trailing++;
+            return "\"" + a + new string('\\', trailing) + "\"";
+        }
+
         public static int RunHidden(string exe, string args)
         {
             var psi = new ProcessStartInfo(exe, args);
@@ -972,6 +1045,11 @@ namespace Icewolf.Setup
             try { if (File.Exists(path)) File.Delete(path); } catch { }
         }
 
+        /// <summary>
+        /// Deletes a folder tree. Junctions and symbolic links are removed as links - never followed -
+        /// so a redirected folder can never make Icewolf (possibly running as administrator) touch
+        /// files outside the folder.
+        /// </summary>
         public static void DeleteDir(string dir)
         {
             for (int attempt = 0; attempt < 10; attempt++)
@@ -979,13 +1057,24 @@ namespace Icewolf.Setup
                 try
                 {
                     if (!Directory.Exists(dir)) return;
-                    foreach (string f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
-                        File.SetAttributes(f, FileAttributes.Normal);
-                    Directory.Delete(dir, true);
+                    DeleteTree(new DirectoryInfo(dir));
                     return;
                 }
                 catch { Thread.Sleep(500); }
             }
+        }
+
+        private static void DeleteTree(DirectoryInfo dir)
+        {
+            if ((dir.Attributes & FileAttributes.ReparsePoint) != 0) { dir.Delete(false); return; }   // the link only
+            foreach (FileInfo f in dir.GetFiles())
+            {
+                if ((f.Attributes & FileAttributes.ReparsePoint) == 0 && (f.Attributes & FileAttributes.ReadOnly) != 0)
+                    f.Attributes = FileAttributes.Normal;
+                f.Delete();                                       // a symbolic link: deletes the link
+            }
+            foreach (DirectoryInfo d in dir.GetDirectories()) DeleteTree(d);
+            dir.Delete(false);
         }
     }
 
@@ -1002,22 +1091,39 @@ namespace Icewolf.Setup
 
         public static int Run()
         {
-            bool created;
-            using (var mutex = new Mutex(true, @"Global\IcewolfUpdaterRunning", out created))
+            // "Only one updater at a time" is a lock file in the install folder that only SYSTEM and
+            // administrators can open. (A named Global\ mutex could be created first by any user,
+            // which would have stopped all updates without a trace.)
+            FileStream lockFile = OpenLock();
+            if (lockFile == null) { Log("Another update is running - skipped."); return 0; }
+            using (lockFile)
             {
-                if (!created) return 0;
-                try
-                {
-                    int rc = Check();
-                    mutex.ReleaseMutex();
-                    return rc;
-                }
+                try { return Check(); }
                 catch (Exception ex)
                 {
                     Log("ERROR: " + ex.Message);
                     return 1;
                 }
             }
+        }
+
+        private static FileStream OpenLock()
+        {
+            if (!Directory.Exists(Paths.InstallDir)) return null;
+            var fs = new FileSecurity();
+            fs.SetAccessRuleProtection(true, false);
+            fs.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                                                      FileSystemRights.FullControl, AccessControlType.Allow));
+            fs.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                                                      FileSystemRights.FullControl, AccessControlType.Allow));
+            try
+            {
+                var stream = new FileStream(Paths.UpdateLock, FileMode.OpenOrCreate, FileSystemRights.FullControl,
+                                            FileShare.None, 16, FileOptions.None, fs);
+                stream.SetAccessControl(fs);                      // also tightens a file left by an older version
+                return stream;
+            }
+            catch (IOException) { return null; }                 // held by a running updater
         }
 
         private static int Check()
@@ -1080,11 +1186,12 @@ namespace Icewolf.Setup
             File.Delete(zip);
             string package = Engine.FindPackageRoot(unpacked);
             Authenticode.VerifyPackage(package);
+            // merged before the swap: if this fails, the installed engine (with its policies) stays
+            Engine.MergePolicies(package, addonsFile);
 
             if (Engine.BrowserRunning(engineDir)) { log("Icewolf was started during download - update postponed."); return false; }
             Engine.ReplaceEngine(package, engineDir);
             Rebrand.Apply(engineDir);
-            Engine.MergePolicies(engineDir, addonsFile);
             return true;
         }
 
@@ -1491,7 +1598,19 @@ namespace Icewolf.Setup
             }
             Log("Browser scripts: core" + (getemScript != null ? " + " + getemScript : " (no Getem in this version)"));
 
-            string js = Res.Text("icewolf-core.js");
+            // 1. Icewolf's locked settings, written into the engine's own config file (Program Files for
+            //    the installed version). They used to go to %USERPROFILE%\.librewolf\librewolf.overrides.cfg,
+            //    which (a) a real LibreWolf on the same PC also reads, (b) the portable engine never read,
+            //    and (c) any program of the user could change.
+            // 2. LibreWolf loads that user-writable overrides file through "autoadmin.global_config_url".
+            //    Icewolf's config runs without the autoconfig sandbox (needed for its toolbar scripts), and
+            //    the overrides file would run the same way - i.e. any program of the user could inject
+            //    privileged code into the browser. So Icewolf switches that file off (locked).
+            string settings =
+                "// ---- Icewolf: no user-writable overrides file (it would run with full browser rights)\n" +
+                "lockPref(\"autoadmin.global_config_url\", \"\");\n" +
+                Res.Text("librewolf.overrides.cfg");
+            string js = settings + "\n" + Res.Text("icewolf-core.js");
             if (getemScript != null) js += "\n" + Res.Text(getemScript);
             js = "/* ICEWOLF-BEGIN */\n" + js.Replace("\r\n", "\n") + "\n/* ICEWOLF-END */";
             string prefDir = Path.Combine(engineDir, "defaults", "pref");
@@ -1686,15 +1805,12 @@ namespace Icewolf.Setup
 
     // ------------------------------------------------------------------ Getem integration
     /// <summary>
-    /// Getem (video search & download, Python app) + its toolbar button:
-    /// the Getem extension talks only to the "icewolf_getem" native messaging host
-    /// (GetemHost.exe), which can do exactly two things: start Getem or run its updater.
+    /// Getem (video search & download, Python app): Icewolf's browser script (getem-tab.js) starts
+    /// GetemHost.exe, which runs Getem as a local server that opens in a browser tab.
     /// </summary>
     internal static class Getem
     {
-        public const string XpiName = "getem@icewolf.xpi";
-
-        /// <summary>True for the "Icewolf with Getem" setup.</summary>
+        /// <summary>True for the "Icewolf with Getem" setup / launcher.</summary>
         public static bool Bundled { get { return Res.Has("getem.zip"); } }
 
         [DllImport("shell32.dll")]
@@ -1724,29 +1840,13 @@ namespace Icewolf.Setup
             File.WriteAllText(settings, new JavaScriptSerializer().Serialize(cfg), new UTF8Encoding(false));
         }
 
-        /// <summary>Writes the native messaging manifest next to the helper and registers it.</summary>
-        public static void RegisterHost(string hostExe, RegistryHive hive)
-        {
-            string manifest = Path.Combine(Path.GetDirectoryName(hostExe), Paths.GetemHostName + ".json");
-            var m = new Dictionary<string, object>();
-            m["name"] = Paths.GetemHostName;
-            m["description"] = "Icewolf: starts Getem";
-            m["path"] = hostExe;
-            m["type"] = "stdio";
-            m["allowed_extensions"] = new string[] { Paths.GetemExtensionId };
-            File.WriteAllText(manifest, new JavaScriptSerializer().Serialize(m), new UTF8Encoding(false));
-
-            using (RegistryKey root = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64))
-            using (RegistryKey k = root.CreateSubKey(Paths.NativeHostsKey))
-                k.SetValue("", manifest, RegistryValueKind.String);
-        }
-
+        /// <summary>Removes the native messaging registration of Icewolf versions before 1.3.</summary>
         public static void UnregisterHost(RegistryHive hive)
         {
             try
             {
                 using (RegistryKey root = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64))
-                    root.DeleteSubKeyTree(Paths.NativeHostsKey, false);
+                    root.DeleteSubKeyTree(Paths.LegacyNativeHostsKey, false);
             }
             catch { }
         }
@@ -1806,8 +1906,7 @@ namespace Icewolf.Setup
             string exe = Path.Combine(Engine_, Rebrand.BrandedExeName);
             if (!File.Exists(exe))
             {
-                MessageBox.Show(L.T("The Icewolf engine folder is missing. Please extract the complete Icewolf Portable zip.",
-                                    "Der Engine-Ordner fehlt. Bitte das komplette Icewolf-Portable-Zip entpacken."),
+                MessageBox.Show("The Icewolf engine folder is missing. Please extract the complete Icewolf Portable zip.",
                                 "Icewolf Portable", MessageBoxButton.OK, MessageBoxImage.Error);
                 return 1;
             }
@@ -1847,14 +1946,7 @@ namespace Icewolf.Setup
 
         private static void StartBrowser(string exe, string[] args)
         {
-            var sb = new StringBuilder("-profile \"" + Profile + "\"");
-            foreach (string a in args)
-            {
-                if (a.StartsWith("/", StringComparison.Ordinal)) continue;           // launcher switches
-                if (a.IndexOf('"') >= 0) continue;                                  // never pass broken quoting
-                sb.Append(" \"").Append(a).Append('"');                            // e.g. a URL or file to open
-            }
-            var psi = new ProcessStartInfo(exe, sb.ToString());
+            var psi = new ProcessStartInfo(exe, Engine.BrowserCommandLine(Profile, args));
             psi.UseShellExecute = false;
             psi.WorkingDirectory = Engine_;
             Process.Start(psi).Dispose();
@@ -1970,6 +2062,144 @@ namespace Icewolf.Setup
         }
     }
 
+    // ------------------------------------------------------------------ installed version: per-user launcher
+    /// <summary>
+    /// Program Files\Icewolf\Icewolf.exe - what the Start menu, desktop and taskbar shortcuts start.
+    /// Runs as the normal user (no administrator rights). For whoever starts it, it prepares that
+    /// user's own profile (settings file, theme, icons) and - in the Getem Edition - Getem's program
+    /// files, whenever this Icewolf version changes them; then it starts the browser.
+    /// This used to be done by the setup as administrator, which wrote into the folders of the
+    /// account that approved the UAC prompt (not necessarily the user) and could be redirected.
+    /// </summary>
+    internal static class UserLauncher
+    {
+        private static readonly string[] LayerResources =
+            { "user.js", "userChrome.css", "userContent.css", "icewolf.ico", "getem.zip" };
+
+        public static int Run(string[] args)
+        {
+            try { EnsureUserSetup(); }
+            catch (Exception ex) { Log("Profile setup FAILED: " + ex.GetType().Name + ": " + ex.Message); }
+
+            if (Program.HasArg(args, "/getem"))
+            {
+                // Start menu "Getem": Getem in its own window
+                string host = Path.Combine(Paths.GetemHostDir, "GetemHost.exe");
+                if (!File.Exists(host)) return 1;
+                var gp = new ProcessStartInfo(host, "/start");
+                gp.UseShellExecute = false;
+                gp.WorkingDirectory = Paths.GetemHostDir;
+                Process.Start(gp).Dispose();
+                return 0;
+            }
+
+            string exe = Paths.BrowserExe;
+            if (!File.Exists(exe))
+            {
+                MessageBox.Show("Icewolf's browser engine was not found - it may be updating right now.\n\n" +
+                                "Please try again in a minute. If this keeps happening, reinstall Icewolf.",
+                                "Icewolf", MessageBoxButton.OK, MessageBoxImage.Error);
+                return 1;
+            }
+            var psi = new ProcessStartInfo(exe, Engine.BrowserCommandLine(Paths.ProfileDir, args));
+            psi.UseShellExecute = false;
+            psi.WorkingDirectory = Paths.EngineDir;
+            Process.Start(psi).Dispose();
+            return 0;
+        }
+
+        /// <summary>Writes this user's Icewolf profile files if they are missing or from another Icewolf version.</summary>
+        private static void EnsureUserSetup()
+        {
+            string prof = Paths.ProfileDir;
+            string chrome = Path.Combine(prof, "chrome");
+            string icons = Path.Combine(chrome, "icons", "default");
+            string stampFile = Path.Combine(prof, "icewolf-layer.txt");
+            string stamp = LayerStamp();
+
+            bool changed = true;
+            try { changed = !File.Exists(stampFile) || File.ReadAllText(stampFile).Trim() != stamp; } catch { }
+            bool missing = !File.Exists(Path.Combine(prof, "user.js")) ||
+                           !File.Exists(Path.Combine(chrome, "userChrome.css")) ||
+                           !File.Exists(Path.Combine(chrome, "userContent.css")) ||
+                           (Getem.Bundled && !File.Exists(Path.Combine(Paths.GetemDir, "app.py")));
+            if (!changed && !missing) return;
+
+            bool owner;
+            using (var mutex = new Mutex(false, @"Local\IcewolfUserSetup"))
+            {
+                try { owner = mutex.WaitOne(30000); }
+                catch (AbandonedMutexException) { owner = true; }
+                try
+                {
+                    Log("Setting up this user's profile (" + (changed ? "new Icewolf version" : "files missing") + ")");
+                    Directory.CreateDirectory(icons);
+                    Res.Extract("user.js", Path.Combine(prof, "user.js"));
+                    Res.Extract("userChrome.css", Path.Combine(chrome, "userChrome.css"));
+                    Res.Extract("userContent.css", Path.Combine(chrome, "userContent.css"));
+                    Res.Extract("icewolf.ico", Path.Combine(icons, "main-window.ico"));
+                    Res.Extract("icewolf.ico", Path.Combine(icons, "default.ico"));
+
+                    if (changed)
+                    {
+                        // Password manager and form history are switched off in Icewolf: remove old data files
+                        foreach (string f in new string[] { "logins.json", "logins-backup.json", "autofill-profiles.json",
+                                                            "formhistory.sqlite", "formhistory.sqlite-wal", "formhistory.sqlite-shm" })
+                            Engine.TryDeleteFile(Path.Combine(prof, f));
+                        Engine.TryDeleteFile(Path.Combine(prof, "librewolf.overrides.cfg"));   // never read (Icewolf <= 1.6)
+                        Engine.DeleteDir(Path.Combine(prof, "startupCache"));
+                        Engine.RemoveLegacyOverrides();
+                    }
+
+                    if (Getem.Bundled)
+                    {
+                        string tmp = Path.Combine(Path.GetTempPath(), "Icewolf-getem-" + Guid.NewGuid().ToString("N"));
+                        try
+                        {
+                            Directory.CreateDirectory(tmp);
+                            Getem.InstallFiles(tmp, Paths.GetemDir, true);
+                            Log("Getem program files updated: " + Paths.GetemDir);
+                        }
+                        finally { Engine.DeleteDir(tmp); }
+                    }
+
+                    File.WriteAllText(stampFile, stamp);
+                    Log("Profile ready: " + prof);
+                }
+                finally { if (owner) mutex.ReleaseMutex(); }
+            }
+        }
+
+        /// <summary>Fingerprint of the profile files embedded in this launcher (changes with each Icewolf version).</summary>
+        private static string LayerStamp()
+        {
+            using (var sha = SHA256.Create())
+            using (var all = new MemoryStream())
+            {
+                foreach (string name in LayerResources)
+                    using (Stream s = Res.Open(name))
+                    {
+                        if (s == null) continue;
+                        byte[] h = sha.ComputeHash(s);
+                        all.Write(h, 0, h.Length);
+                    }
+                return BitConverter.ToString(sha.ComputeHash(all.ToArray())).Replace("-", "");
+            }
+        }
+
+        private static void Log(string msg)
+        {
+            try
+            {
+                Directory.CreateDirectory(Paths.ProfileRoot);
+                string log = Path.Combine(Paths.ProfileRoot, "launcher-log.txt");
+                if (File.Exists(log) && new FileInfo(log).Length > 256 * 1024) File.Delete(log);
+                File.AppendAllText(log, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + "  " + msg + "\r\n");
+            }
+            catch { }
+        }
+    }
+
     // ------------------------------------------------------------------ shortcuts (.lnk) with taskbar ID
     internal static class ShellLink
     {
@@ -2060,7 +2290,7 @@ namespace Icewolf.Setup
         }
 
         /// <summary>Plain shortcut (used for the Getem Start menu entry).</summary>
-        public static void CreateSimple(string lnkPath, string target, string args, string workDir, string description)
+        public static void CreateSimple(string lnkPath, string target, string args, string workDir, string description, string iconFile)
         {
             object obj = new CShellLink();
             try
@@ -2069,7 +2299,7 @@ namespace Icewolf.Setup
                 link.SetPath(target);
                 link.SetArguments(args);
                 link.SetWorkingDirectory(workDir);
-                link.SetIconLocation(target, 0);
+                link.SetIconLocation(iconFile ?? target, 0);
                 link.SetDescription(description);
                 ((System.Runtime.InteropServices.ComTypes.IPersistFile)obj).Save(lnkPath, true);
             }
@@ -2082,9 +2312,9 @@ namespace Icewolf.Setup
             try
             {
                 var link = (IShellLinkW)obj;
-                link.SetPath(Paths.BrowserExe);
-                link.SetArguments("-profile \"" + Paths.ProfileDir + "\"");
-                link.SetWorkingDirectory(Paths.EngineDir);
+                // The unelevated launcher prepares the profile of whoever clicks it, then starts the browser
+                link.SetPath(Paths.LauncherExe);
+                link.SetWorkingDirectory(Paths.InstallDir);
                 link.SetIconLocation(Paths.IconFile, 0);
                 link.SetDescription("Icewolf - private, fast, secure");
 
@@ -2499,7 +2729,7 @@ namespace Icewolf.Setup
 
         private void RunWork(string title, Work work, Action onSuccess)
         {
-            var page = PageBase(title, L.T("Please wait a moment.", "Bitte einen Moment Geduld."), null);
+            var page = PageBase(title, "Please wait a moment.", null);
             var status = new TextBlock { FontSize = 14, Foreground = Theme.Text, Margin = new Thickness(0, 64, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis };
             var progressBar = new FrostProgress { Margin = new Thickness(0, 14, 0, 0) };
             var percent = new TextBlock { FontSize = 12, Foreground = Theme.Dim, Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Right, Text = "0 %" };
@@ -2526,7 +2756,7 @@ namespace Icewolf.Setup
                 catch (SetupException ex) { error = ex.Message; }
                 catch (Exception ex)
                 {
-                    error = L.T("An unexpected error occurred:", "Ein unerwarteter Fehler ist aufgetreten:") + "\n\n" + ex.Message;
+                    error = "An unexpected error occurred:" + "\n\n" + ex.Message;
                 }
 
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -2544,56 +2774,52 @@ namespace Icewolf.Setup
         // ---------------------------------------------------------- install pages
         private void ShowWelcome()
         {
-            var page = PageBase(L.T("Welcome to Icewolf", "Willkommen bei Icewolf"),
-                                L.T("A private, fast and secure browser - no telemetry, no AI, no ads.",
-                                    "Ein privater, schneller und sicherer Browser - ohne Telemetrie, KI und Werbung."), null);
+            var page = PageBase("Welcome to Icewolf",
+                                "A private, fast and secure browser - no telemetry, no AI, no ads.", null);
             page.Children.Add(new Border { Height = 10 });
-            page.Children.Add(Feature("", L.T("uBlock Origin ad blocker built in", "Werbeblocker uBlock Origin integriert")));
-            page.Children.Add(Feature("", L.T("Strict tracking protection and HTTPS-only", "Strenger Tracking-Schutz und Nur-HTTPS")));
-            page.Children.Add(Feature("", L.T("Debloated: no telemetry, ads or AI features", "Entschlackt: keine Telemetrie, Werbung oder KI")));
-            page.Children.Add(Feature("", L.T("Automatic security updates", "Automatische Sicherheitsupdates")));
+            page.Children.Add(Feature("", "uBlock Origin ad blocker built in"));
+            page.Children.Add(Feature("", "Strict tracking protection and HTTPS-only"));
+            page.Children.Add(Feature("", "Debloated: no telemetry, ads or AI features"));
+            page.Children.Add(Feature("", "Automatic security updates"));
             if (Getem.Bundled)
-                page.Children.Add(Feature("", L.T("Includes Getem (video search & download)", "Inklusive Getem (Videosuche & Download)")));
+                page.Children.Add(Feature("", "Includes Getem (video search & download)"));
 
             page.Children.Add(new TextBlock
             {
-                Text = L.T("Install location:  ", "Installationsort:  ") + Paths.InstallDir,
+                Text = "Install location:  " + Paths.InstallDir,
                 FontSize = 12, Foreground = Theme.Dim, Margin = new Thickness(0, 22, 0, 2)
             });
-            var desktop = new FrostCheck(L.T("Create a desktop shortcut", "Desktop-Verknüpfung erstellen"), true);
+            var desktop = new FrostCheck("Create a desktop shortcut", true);
             page.Children.Add(desktop);
 
-            var cancel = new FrostButton(L.T("Cancel", "Abbrechen"), false);
+            var cancel = new FrostButton("Cancel", false);
             cancel.Click += delegate { Close(); };
-            var install = new FrostButton(L.T("Install", "Installieren"), true);
+            var install = new FrostButton("Install", true);
             install.Click += delegate
             {
                 bool wantDesktop = desktop.IsChecked;
-                RunWork(L.T("Installing Icewolf", "Icewolf wird installiert"),
+                RunWork("Installing Icewolf",
                         p => Engine.Install(wantDesktop, p),
                         () => ShowFinished(wantDesktop));
             };
-            SetPage(page, L.T("Open-source engine (MPL 2.0). Independent project.",
-                              "Open-Source-Engine (MPL 2.0). Unabhängiges Projekt."), cancel, install);
+            SetPage(page, "Open-source engine (MPL 2.0). Independent project.", cancel, install);
         }
 
         private void ShowFinished(bool desktop)
         {
-            var page = PageBase(L.T("Icewolf is ready", "Icewolf ist bereit"),
+            var page = PageBase("Icewolf is ready",
                 desktop
-                    ? L.T("You'll find Icewolf in your Start menu and on your desktop. uBlock Origin is already active.",
-                          "Icewolf finden Sie im Startmenü und auf dem Desktop. uBlock Origin ist bereits aktiv.")
-                    : L.T("You'll find Icewolf in your Start menu. uBlock Origin is already active.",
-                          "Icewolf finden Sie im Startmenü. uBlock Origin ist bereits aktiv."), null);
+                    ? "You'll find Icewolf in your Start menu and on your desktop. uBlock Origin is already active."
+                    : "You'll find Icewolf in your Start menu. uBlock Origin is already active.", null);
             page.Children.Add(new Border { Height = 18 });
-            page.Children.Add(Feature("", L.T("Privacy settings applied", "Datenschutzeinstellungen angewendet")));
-            page.Children.Add(Feature("", L.T("Ad blocker installed", "Werbeblocker installiert")));
-            page.Children.Add(Feature("", L.T("Automatic updates enabled", "Automatische Updates aktiviert")));
-            var launch = new FrostCheck(L.T("Launch Icewolf now", "Icewolf jetzt starten"), true);
+            page.Children.Add(Feature("", "Privacy settings applied"));
+            page.Children.Add(Feature("", "Ad blocker installed"));
+            page.Children.Add(Feature("", "Automatic updates enabled"));
+            var launch = new FrostCheck("Launch Icewolf now", true);
             launch.Margin = new Thickness(0, 26, 0, 0);
             page.Children.Add(launch);
 
-            var finish = new FrostButton(L.T("Finish", "Fertigstellen"), true);
+            var finish = new FrostButton("Finish", true);
             finish.Click += delegate
             {
                 if (launch.IsChecked) Engine.LaunchUnelevated();
@@ -2604,15 +2830,15 @@ namespace Icewolf.Setup
 
         private void ShowError(string message)
         {
-            var page = PageBase(uninstallMode ? L.T("Uninstall failed", "Deinstallation fehlgeschlagen")
-                                              : L.T("Installation failed", "Installation fehlgeschlagen"),
+            var page = PageBase(uninstallMode ? "Uninstall failed"
+                                              : "Installation failed",
                                 null, Theme.Bad);
             page.Children.Add(new TextBlock
             {
                 Text = message, FontSize = 13.5, Foreground = Theme.Text, TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 16, 0, 0), LineHeight = 20
             });
-            var close = new FrostButton(L.T("Close", "Schließen"), true);
+            var close = new FrostButton("Close", true);
             close.Click += delegate { Close(); };
             SetPage(page, null, close);
         }
@@ -2620,27 +2846,24 @@ namespace Icewolf.Setup
         // ---------------------------------------------------------- uninstall pages
         private void ShowUninstallConfirm()
         {
-            var page = PageBase(L.T("Uninstall Icewolf", "Icewolf deinstallieren"),
-                                L.T("This removes Icewolf and its browser engine from your PC.",
-                                    "Dadurch werden Icewolf und seine Browser-Engine von Ihrem PC entfernt."), null);
-            var profile = new FrostCheck(L.T("Also delete my profile (bookmarks, passwords, history, settings)",
-                                             "Auch mein Profil löschen (Lesezeichen, Passwörter, Verlauf, Einstellungen)"), false);
+            var page = PageBase("Uninstall Icewolf",
+                                "This removes Icewolf and its browser engine from your PC.", null);
+            var profile = new FrostCheck("Also delete my profile (bookmarks, passwords, history, settings)", false);
             profile.Margin = new Thickness(0, 30, 0, 0);
             page.Children.Add(profile);
             page.Children.Add(new TextBlock
             {
-                Text = L.T("Leave this unchecked to keep your data for a future reinstall.",
-                           "Nicht anhaken, um Ihre Daten für eine spätere Neuinstallation zu behalten."),
+                Text = "Leave this unchecked to keep your data for a future reinstall.",
                 FontSize = 12, Foreground = Theme.Dim, Margin = new Thickness(30, 4, 0, 0), TextWrapping = TextWrapping.Wrap
             });
 
-            var cancel = new FrostButton(L.T("Cancel", "Abbrechen"), false);
+            var cancel = new FrostButton("Cancel", false);
             cancel.Click += delegate { Close(); };
-            var go = new FrostButton(L.T("Uninstall", "Deinstallieren"), true);
+            var go = new FrostButton("Uninstall", true);
             go.Click += delegate
             {
                 bool removeProfile = profile.IsChecked;
-                RunWork(L.T("Uninstalling Icewolf", "Icewolf wird deinstalliert"),
+                RunWork("Uninstalling Icewolf",
                         p => Engine.Uninstall(removeProfile, p),
                         ShowUninstalled);
             };
@@ -2650,9 +2873,9 @@ namespace Icewolf.Setup
 
         private void ShowUninstalled()
         {
-            var page = PageBase(L.T("Icewolf was removed", "Icewolf wurde entfernt"),
-                                L.T("Thanks for trying Icewolf.", "Danke, dass Sie Icewolf ausprobiert haben."), null);
-            var close = new FrostButton(L.T("Close", "Schließen"), true);
+            var page = PageBase("Icewolf was removed",
+                                "Thanks for trying Icewolf.", null);
+            var close = new FrostButton("Close", true);
             close.Click += delegate { Close(); };
             SetPage(page, null, close);
         }

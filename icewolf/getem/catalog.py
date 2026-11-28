@@ -18,7 +18,7 @@ PROVIDERS = {"Tubi": "tubi", "Plex": "plex", "Pluto TV": "pluto", "ORF ON (Media
              "ZDF (MediathekView)": "ZDF", "ARTE (MediathekView)": "ARTE",
              "3sat (MediathekView)": "3sat"}
 
-SORT_MODES = ("Beste Übereinstimmung", "Titel A–Z", "Titel Z–A", "Jahr: neueste zuerst", "Jahr: älteste zuerst")
+SORT_MODES = ("Best match", "Title A–Z", "Title Z–A", "Year: newest first", "Year: oldest first")
 
 
 def normalized(text):
@@ -108,7 +108,7 @@ def group_episodes(rows):
         seen.add(row["url"])
         season = number(row.get("season"))
         groups.setdefault(season, []).append(row)
-    return [{"number": season, "title": f"Staffel {season}" if season is not None else "Ohne Staffelzuordnung",
+    return [{"number": season, "title": f"Season {season}" if season is not None else "No season assigned",
              "episodes": sorted(items, key=lambda e: (number(e.get("number")) is None, number(e.get("number")) or 0, e.get("title", "")))}
             for season, items in sorted(groups.items(), key=lambda p: (p[0] is None, p[0] or 0))]
 
@@ -185,19 +185,19 @@ class Tubi:
                             "rating": ((item.get("ratings") or [{}])[0] or {}).get("value"),
                             "wide": first_image(item.get("landscape_images"), item.get("thumbnails")),
                             "poster": first_image(item.get("posterarts"))})
-        return {"shows": sort_shows(results, name), "notice": "Nur passende Serientitel; unpassende Empfehlungen ausgeblendet. Verfügbarkeit abhängig von Region und Anbieter."}
+        return {"shows": sort_shows(results, name), "notice": "Only matching series titles; unrelated recommendations hidden. Availability depends on region and provider."}
 
     def episodes(self, show):
         sid = show["id"]
         index = self.get(self.content, f"/api/v3/series/{sid}/episodes", {"platform": "web"})
         seasons = index.get("episodes_by_season")
         if not isinstance(seasons, list):
-            raise ValueError("Tubi liefert keine lesbare Staffelliste.")
+            raise ValueError("Tubi returned no readable season list.")
         rows = []
         for season in seasons:
             sn = season.get("season")
             if sn is None:
-                raise ValueError("Staffelnummer fehlt in der Tubi-Antwort.")
+                raise ValueError("Season number missing in Tubi's answer.")
             expected = len(season.get("episodes") or [])
             seen = set()
             for page in range(1, 501):
@@ -207,7 +207,7 @@ class Tubi:
                 episodes = [e for child in data.get("children", []) for e in child.get("children", [])]
                 fresh = [e for e in episodes if e.get("id") is not None and str(e["id"]) not in seen]
                 if episodes and not fresh:
-                    raise ValueError("Tubi wiederholt eine Ergebnisseite; bitte später erneut versuchen.")
+                    raise ValueError("Tubi repeats a result page; please try again later.")
                 for e in fresh:
                     seen.add(str(e["id"]))
                     rows.append({"url": f"https://tubitv.com/tv-shows/{e['id']}", "season": sn,
@@ -216,13 +216,13 @@ class Tubi:
                                  "img": first_image(e.get("thumbnails"))})
                 if (expected and len(seen) >= expected) or len(episodes) < 20:
                     if expected and len(seen) < expected:
-                        raise ValueError(f"Staffel {sn} unvollständig geladen ({len(seen)}/{expected}). Bitte erneut versuchen.")
+                        raise ValueError(f"Season {sn} only partly loaded ({len(seen)}/{expected}). Please try again.")
                     break
             else:
-                raise ValueError("Zu viele Ergebnisseiten. Keine vollständige Liste geladen.")
+                raise ValueError("Too many result pages. The list is not complete.")
         if not rows:
-            raise ValueError("Für diese Serie wurden keine Episoden zurückgegeben.")
-        return {"title": show["title"], "seasons": group_episodes(rows), "notice": "Alle vom Anbieter gelieferten Episoden. Downloadverfügbarkeit wird beim Start geprüft."}
+            raise ValueError("No episodes were returned for this series.")
+        return {"title": show["title"], "seasons": group_episodes(rows), "notice": "All episodes the provider returned. Whether each can be downloaded is checked when it starts."}
 
 
 class Plex:
@@ -249,7 +249,7 @@ class Plex:
                 raise
             token = auth.get("authToken")
             if not isinstance(token, str) or not token:
-                raise ValueError("Plex hat keinen Gastzugang bereitgestellt.")
+                raise ValueError("Plex did not provide guest access.")
             self.headers["X-Plex-Token"] = token
             return
 
@@ -262,7 +262,7 @@ class Plex:
 
     def get(self, path, params=None, paging=None):
         if not re.fullmatch(r"/library/metadata/[\w-]+(?:/children)?", path) and path != "/hubs/search":
-            raise ValueError("Ungültiger Plex-Katalogpfad.")
+            raise ValueError("Invalid Plex catalog path.")
         self.authorize()
         url = self.host + path + ("?" + urlencode(params) if params else "")
         data = self.request(url, headers={**self.headers, **(paging or {})})
@@ -281,7 +281,7 @@ class Plex:
         if isinstance(key, str) and key.endswith("/children"):
             key = key[:-9]
         if not re.fullmatch(r"/library/metadata/[\w-]+", key):
-            raise ValueError("Plex liefert keine eindeutige Medien-ID.")
+            raise ValueError("Plex returned no unique media ID.")
         return key
 
     def search(self, name):
@@ -300,7 +300,7 @@ class Plex:
                           "wide": first_image([item.get("art"), item.get("thumb")]),
                           "poster": first_image([item.get("thumb")])}
         return {"shows": sort_shows(list(shows.values()), name), "notice":
-                "Passende Serien aus Plex Movies & Shows (bis zu 100 Treffer). Keine Verweise auf fremde Streaming-Abos. Downloads nur bei verfügbaren, ungeschützten Streams."}
+                "Matching series from Plex Movies & Shows (up to 100 results). No links to other streaming subscriptions. Downloads only for available, unprotected streams."}
 
     def children(self, path):
         # Validate before any authenticated request, even for loaded UI state.
@@ -312,7 +312,7 @@ class Plex:
             for item in page:
                 key = self.metadata_key(item)
                 if key in seen:
-                    raise ValueError("Plex wiederholt Katalogeinträge; Liste nicht vollständig geladen.")
+                    raise ValueError("Plex repeats catalog entries; the list is not complete.")
                 seen.add(key)
                 rows.append(item)
             total = number(data.get("totalSize"))
@@ -320,9 +320,9 @@ class Plex:
                 return rows
             if len(page) < 100:
                 if total is not None and len(rows) < total:
-                    raise ValueError("Plex lieferte eine unvollständige Episodenliste.")
+                    raise ValueError("Plex returned an incomplete episode list.")
                 return rows
-        raise ValueError("Plex-Ergebnislimit erreicht; Liste nicht vollständig geladen.")
+        raise ValueError("Plex result limit reached; the list is not complete.")
 
     def episodes(self, show):
         rows = []
@@ -334,14 +334,14 @@ class Plex:
                     continue
                 rows.append({"url": self.host + self.metadata_key(episode),
                              "season": episode.get("parentIndex", season.get("index")),
-                             "number": episode.get("index"), "title": episode.get("title") or "Ohne Titel",
+                             "number": episode.get("index"), "title": episode.get("title") or "Untitled",
                              "id": self.metadata_key(episode).rsplit("/", 1)[-1],
                              "dur": (number(episode.get("duration")) or 0) // 1000,
                              "desc": episode.get("summary") or "", "img": first_image([episode.get("thumb")])})
         if not rows:
-            raise ValueError("Plex liefert keine verfügbaren Episoden für diese Serie.")
+            raise ValueError("Plex has no available episodes for this series.")
         return {"title": show["title"], "seasons": group_episodes(rows), "notice":
-                "Plex-Katalog: Verfügbarkeit und DRM werden vor jedem Download geprüft. Nicht jeder gelistete Titel ist herunterladbar."}
+                "Plex catalog: availability and DRM are checked before each download. Not every listed title can be downloaded."}
 
 
 class Mediathek:
@@ -381,8 +381,8 @@ class Mediathek:
                                             "desc": row.get("description") or "", "page": row.get("url_website"), "count": 0})
             show["count"] += 1
         return {"shows": sorted(shows.values(), key=lambda s: s["title"]),
-                "notice": "Suche auf 1.000 Beiträge begrenzt; Suchbegriff ggf. genauer eingeben." if limited else
-                "Sendungen/Themen aus MediathekView; enthält auch Dokus, Shows und Magazine."}
+                "notice": "Search limited to 1,000 items; try a more specific search term." if limited else
+                "Programs/topics from MediathekView; also includes documentaries, shows and magazines."}
 
     def episodes(self, show):
         rows, limited = self.rows(show["id"], "topic", 10000)
@@ -390,7 +390,7 @@ class Mediathek:
         for row in rows:
             if row.get("channel", "").casefold() != self.channel.casefold() or row.get("topic") != show["id"]:
                 continue
-            title = row.get("title") or "Ohne Titel"
+            title = row.get("title") or "Untitled"
             match = re.search(r"\bS(\d+)\s*[: ._-]*E(\d+)\b|\((\d+)/(\d+)\)", title, re.I)
             season, episode = (number(match[1]), number(match[2])) if match and match[1] else (None, None)
             url = row.get("url_website") or row.get("url_video_hd") or row.get("url_video")
@@ -399,15 +399,15 @@ class Mediathek:
                              "page": row.get("url_website")})
         seasons = group_episodes(episodes)
         if not seasons:
-            raise ValueError("Keine aktuell gelisteten Folgen gefunden.")
+            raise ValueError("No currently listed episodes found.")
         return {"title": show["title"], "seasons": seasons, "notice":
-                ("Achtung: Ergebnislimit erreicht; Liste unvollständig. " if limited else "") +
-                "Aktuell im Index verfügbare Beiträge, keine Garantie vollständiger Staffeln. Ohne eindeutige Staffelnummer: Ohne Staffelzuordnung."}
+                ("Note: result limit reached; the list is incomplete. " if limited else "") +
+                "Items currently in the index; complete seasons are not guaranteed. Without a clear season number: No season assigned."}
 
 
 def client_for(provider):
     if provider not in PROVIDERS.values():
-        raise ValueError("Unbekannter Anbieter.")
+        raise ValueError("Unknown provider.")
     if provider == "pluto":
         from pluto_catalog import Pluto
         return Pluto()
@@ -418,9 +418,9 @@ def friendly_error(exc):
     """No request headers, session tokens, or signed URLs in user-facing errors."""
     from urllib.error import HTTPError, URLError
     if isinstance(exc, HTTPError):
-        return f"Anbieter antwortet mit HTTP {exc.code}. Region, Verfügbarkeit oder Schnittstelle prüfen."
+        return f"The provider answered with HTTP {exc.code}. Check region, availability or the service."
     if isinstance(exc, (URLError, TimeoutError)):
-        return "Anbieter nicht erreichbar. Internetverbindung prüfen und erneut versuchen."
+        return "Provider not reachable. Check your internet connection and try again."
     return str(exc)
 
 
@@ -430,7 +430,7 @@ def main():
     if job["action"] == "search":
         name = job["query"].strip()
         if not name:
-            raise ValueError("Bitte einen Seriennamen eingeben.")
+            raise ValueError("Please enter a series name.")
         data = client.search(name)
     else:
         data = client.episodes(job["show"])

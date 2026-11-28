@@ -21,7 +21,7 @@ class Pluto:
                       "clientID": str(uuid.uuid4()), "clientModelNumber": "1.0.0", "serverSideAds": "false"}
             data = self.request("https://boot.pluto.tv/v4/start?" + urlencode(params), headers=self.headers)
             if not isinstance(data.get("sessionToken"), str) or not data["sessionToken"]:
-                raise ValueError("Pluto TV hat keinen Gastzugang bereitgestellt. Region prüfen.")
+                raise ValueError("Pluto TV did not provide guest access. Check the region.")
             self.session = data
         return self.session
 
@@ -34,7 +34,7 @@ class Pluto:
     def identifier(value):
         value = str(value or "")
         if not re.fullmatch(r"[a-zA-Z0-9_-]+", value):
-            raise ValueError("Pluto TV liefert keine gültige Medien-ID.")
+            raise ValueError("Pluto TV returned no valid media ID.")
         return value
 
     @staticmethod
@@ -73,12 +73,12 @@ class Pluto:
             if len(categories) < 100:
                 break
             if not fresh:
-                raise ValueError("Pluto TV wiederholt Katalogseiten; Suche nicht vollständig geladen.")
+                raise ValueError("Pluto TV repeats catalog pages; the search is not complete.")
         else:
             limited = True
-        notice = "Serien aus dem regionalen Pluto-TV-Abrufkatalog; keine Live-Kanäle."
+        notice = "Series from the regional Pluto TV on-demand catalog; no live channels."
         if limited:
-            notice += " Pluto begrenzt Kataloglisten; weitere Serien können fehlen."
+            notice += " Pluto limits catalog lists; more series may be missing."
         return {"shows": sort_shows(list(shows.values()), name), "notice": notice}
 
     def episodes(self, show):
@@ -86,13 +86,13 @@ class Pluto:
         data = self.get(f"/v3/vod/series/{sid}/seasons")
         seasons = data.get("seasons")
         if not isinstance(seasons, list):
-            raise ValueError("Pluto TV liefert keine lesbare Staffelliste.")
+            raise ValueError("Pluto TV returned no readable season list.")
         rows, seen = [], set()
         for season in seasons:
             episodes = season.get("episodes") or []
             expected = number(season.get("totalEpisodesCount"))
             if expected is not None and expected > len(episodes):
-                raise ValueError("Pluto TV liefert eine unvollständige Staffel. Bitte erneut versuchen.")
+                raise ValueError("Pluto TV returned an incomplete season. Please try again.")
             for episode in episodes:
                 eid = self.identifier(episode.get("_id") or episode.get("id"))
                 if eid in seen:
@@ -106,9 +106,9 @@ class Pluto:
                              "desc": episode.get("description") or episode.get("summary") or "",
                              "img": self.image(episode)})
         if not rows:
-            raise ValueError("Pluto TV bietet für diese Serie hier keine Abruffolgen an.")
+            raise ValueError("Pluto TV offers no on-demand episodes of this series here.")
         return {"title": show["title"], "seasons": group_episodes(rows),
-                "notice": "Regionale Abruffolgen von Pluto TV. Proton VPN vor der Suche verbinden und beim Download verbunden lassen."}
+                "notice": "Regional on-demand episodes from Pluto TV. Connect Proton VPN before searching and stay connected while downloading."}
 
     def stream(self, episode_id):
         eid = self.identifier(episode_id)
@@ -116,7 +116,7 @@ class Pluto:
         server = urlsplit(boot.get("servers", {}).get("stitcher", ""))
         # Only send the guest JWT to a Pluto-controlled endpoint.
         if server.scheme != "https" or not (server.hostname or "").endswith(".pluto.tv") or server.username or server.password:
-            raise ValueError("Pluto TV liefert keinen gültigen Wiedergabeserver.")
+            raise ValueError("Pluto TV returned no valid playback server.")
         params = dict(parse_qsl(boot.get("stitcherParams") or ""))
         params.update(jwt=boot["sessionToken"], masterJWTPassthrough="true", includeExtendedEvents="true")
         return urlunsplit((server.scheme, server.netloc, f"/v2/stitch/hls/episode/{eid}/master.m3u8", urlencode(params), ""))
